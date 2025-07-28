@@ -24,7 +24,7 @@ share_pattern = r"https:\/\/www\.roblox\.com\/share\?code=([a-f0-9]+)&type=([A-Z
 
 # main class
 class MyClient(commands.Bot):
-    def __init__(self, imports, presetdata, toaster=WindowsToaster('Macro Alert'), mixer=False):
+    def __init__(self, imports, toaster=WindowsToaster('Macro Alert'), mixer=False):
         super().__init__(command_prefix="%", self_bot=True)
         self.imports = imports
         
@@ -34,22 +34,23 @@ class MyClient(commands.Bot):
         self.deep_link = None
         self.rare_found = None
 
-        self.rarenotif = imports['Rare Biome Sound'] or r'sounds/glitchNotif.mp3'
+        self.rarenotif = imports['Rare Biome Sound']
         
         self.blacklist = [
-            1271189513619902515, # glitch channel
-            1337886908251902114, # dreamscape channel
-            1271189425459826702, # jester channel
-            1290022552105648168, # void coin channel
-            1311743706923143258, # blocked logs channel
-            1341135964109803541, # macro application channel
-            1358473933804015860, # multi macro application channel
-            1348261847459037255, # priv server channel
-            1271190742911684638, # general
-            1311362490575097997, # catpost
+            1271189513619902515,
+            1337886908251902114,
+            1271189425459826702,
+            1290022552105648168,
+            1311743706923143258,
+            1341135964109803541,
+            1358473933804015860,
+            1348261847459037255,
+            1271190742911684638,
+            1311362490575097997,
         ]
 
         self.servers = [1271189425459826699, 1362219755489988646]
+        self.cmd_whitelist = imports['cmd_whitelist']
 
         self.current_time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         self.currentLog = f'logs/{self.current_time}-sniper-log'
@@ -58,7 +59,7 @@ class MyClient(commands.Bot):
         if not mixer:
             pygame.mixer.init()
 
-        self.data = presetdata
+        self.biomedata = requests.get(imports['PresetData']).json()
 
         if 'logs' not in os.listdir():
             os.mkdir('logs')
@@ -92,7 +93,7 @@ class MyClient(commands.Bot):
             if 'on_glitch' in self.events:
                 await self.events['on_glitch'](message) # PORT
 
-        if message.author == self.user:
+        if message.author.id in (*self.cmd_whitelist, self.user.id):
             await self.process_commands(message)
 
     def appendlogs(self, message):
@@ -127,7 +128,7 @@ class MyClient(commands.Bot):
         biome = None
 
         def detect_biome(text):
-            for kw in self.data['glitch_keywords'] + self.data['dream_keywords']:
+            for kw in self.biomedata['glitch_keywords'] + self.biomedata['dream_keywords']:
                 if kw in text:
                     return kw
             return None
@@ -203,3 +204,6 @@ class MyClient(commands.Bot):
             self.appendlogs(f"Deep link is: {self.deep_link!r}")
 
             threading.Thread(target=show_toast, daemon=True).start()
+
+    def fetch_biome_data(self, biomedata):
+        self.biomedata = biomedata

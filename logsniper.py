@@ -45,26 +45,25 @@ async def joinGameSequence():
 
 # class
 class LogSniper:
-    def __init__(self, biomedata, configdata):
+    def __init__(self, data):
+        self.data = data
+        
         self.path = os.path.join(os.getenv('LOCALAPPDATA'), 'Roblox', 'logs')
         self.events = {}
         self.sendLogs = True
 
-        self.webhooks = [hook for hook in configdata['Webhooks'].values()]
-        self.pslink = configdata['Server']
+        self.webhooks = [hook for hook in data['Webhooks'].values()]
+        self.pslink = data['Server']
 
         self.current_time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         self.currentLog = f'logs/{self.current_time}-logger-log'
 
         self.macro_start_time = time.time()
 
-        self.data = configdata
+        self.biomedata = requests.get(data['PresetData']).json()
 
         # self.rpc = Presence(1371122806393143367)
         # self.rpc.connect()
-
-        # init funcs
-        self.biomedata = biomedata
 
         if 'logs' not in os.listdir():
             os.mkdir('logs')
@@ -73,7 +72,7 @@ class LogSniper:
             file.write('')
 
         self.last_biome = None
-        self.last_aura = 'Not Found'
+        self.last_aura = 'None'
         self.synced = False
 
         self.last_position = 0
@@ -141,6 +140,9 @@ class LogSniper:
         with open(self.currentLog, 'a') as file:
             file.write(f'{message}\n\n')
 
+    def fetch_biome_data(self, biomedata):
+        self.biomedata = biomedata
+
     def on_shutdown(self):
         timestamp = int(time.time())
         discord_time = f"<t:{timestamp}:R>"
@@ -201,7 +203,7 @@ class LogSniper:
         embed2 = {}
 
         timestamp = int(time.time())
-        discord_time = f"<t:{timestamp}:R>"
+        discord_time = f"<t:{timestamp}:F>"
 
         # --- Rich Presence (DISABLED) ---
         # self.rpc.update(
@@ -270,7 +272,7 @@ class LogSniper:
                     },
                     {
                         'name': 'Biome Ending in',
-                        'value': f'<t:{timestamp + self.biomedata[biome]["duration"]}:R>',
+                        'value': f'<t:{timestamp + self.biomedata[biome]["duration"]}:R>' if isinstance(self.biomedata[biome]["duration"], int) else '**NOT FOUND**',
                         'inline': True
                     },
                 ] + fields
@@ -296,7 +298,7 @@ class LogSniper:
 
         if updateCounter:
             self.appendlogs(f'[LINE 295 IN CODE, LINE {self.last_position} IN LOGFILE] {biome} detected at {self.current_time}.')
-        
+
         if 'on_biome' in self.events:
             await self.events['on_biome'](biome, aura, updateCounter=updateCounter)
 
@@ -320,7 +322,8 @@ class LogSniper:
                 os.startfile(self.convert_roblox_link(self.data['Server']))
 
             except Exception as e:
-                print(f'Exception: [{e}] has occured in logsniper at line 303')
+                self.appendlogs(f'Exception: [{e}] has occured.')
+                print(f'EXCEPTION CAPTURED! Check logfile {self.currentLog} for more info')
 
         payload = {
             'username': self.data['webhook_name'],
@@ -337,7 +340,6 @@ class LogSniper:
 
         for webhook in self.webhooks:
             requests.post(webhook, json=payload)
-
         while True:
             self.current_time = datetime.now().strftime('%Y-%m-%d %H:%M.%S')
 
@@ -345,12 +347,8 @@ class LogSniper:
                 if 'get_data' in self.events:
                     self.data = await self.events['get_data']()
 
-                if self.data['active']: # assign token webhook values etc
-                    pass
-
-                else:
-                    return
-
+                if not self.data['active']: return
+                
                 if self.data['sendLogs']:
                     await self.check_biome()
 

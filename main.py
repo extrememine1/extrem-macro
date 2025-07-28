@@ -11,8 +11,11 @@ import time
 import psutil
 import win32gui
 import win32con
+import GPUtil
+import cpuinfo
 
 import keyboard
+import mouse
 
 from pygame import mixer
 
@@ -33,7 +36,8 @@ localvars = {
     'active': False,
     'sendLogs': True,
     'sniper_log': None,
-    'current_anti_dc_thread': None
+    'current_anti_dc_thread': None,
+    'screen_size': None
 }
 template = {
     'Token': '',
@@ -52,11 +56,14 @@ template = {
         'NULL': 0,
         'GLITCHED': 0,
         'DREAMSPACE': 0,
+        'BLAZING SUN': 0
     },
-    'Version': 'extrem-macro-v2.2',
+    'Version': 'extrem-macro-v2.2.1',
     'PresetData': 'https://raw.githubusercontent.com/extrememine1/presetdata/refs/heads/main/fixedData.json',
     'webhook_name': 'onionboy69696969',
-    'webhook_avatar': 'https://cdn.discordapp.com/attachments/1362219756148490433/1384873643233906698/image.png?ex=68540396&is=6852b216&hm=ecac40a532e082dedc2b48d40ef6b748dc4997675fc43dc915f1681b1e19a66d&'
+    'webhook_avatar': 'https://cdn.discordapp.com/attachments/1362219756148490433/1384873643233906698/image.png?ex=68540396&is=6852b216&hm=ecac40a532e082dedc2b48d40ef6b748dc4997675fc43dc915f1681b1e19a66d&',
+    'cmd_whitelist': [], # guh
+    'always_on_top': False,
 }
 
 populates = {}
@@ -85,10 +92,10 @@ saveConfig()
 
 mixer.init()
 
-biomedata = requests.get(data['PresetData']).json()
+logger = LogSniper(data|localvars)
+sniper = DiscSniper(data, mixer=True)
 
-logger = LogSniper(biomedata, data|localvars)
-sniper = DiscSniper(data, biomedata, mixer=True)
+biomedata = requests.get(template['PresetData']).json()
 
 # main functions --------------------------------------------------------------
 def int_to_hex_color(color_int):
@@ -118,6 +125,13 @@ def populate(biome, aura, updateCounter):
 
     saveConfig()
 
+def fetch_biome_data():
+    if localvars['active']:
+        biomedata = requests.get(template['PresetData']).json()
+        
+        logger.fetch_biome_data(biomedata)
+        sniper.fetch_biome_data(biomedata)
+
 async def joinGameSequence(delay):
     await asyncio.sleep(2.5)
     hwnd = win32gui.FindWindow(None, 'Roblox')
@@ -140,13 +154,18 @@ async def joinGameSequence(delay):
 
 def anti_disconnect():
     if 'RobloxPlayerBeta.exe' in [proc.info['name'] for proc in psutil.process_iter(['pid', 'name'])]:
-        time.sleep(15 * 60)
+        time.sleep(2 * 60 + 30)
         
         while (localvars['active'] and data['anti_dc']):
             hwnd = win32gui.FindWindow(None, 'Roblox')
                 
             keyboard.send('shift')
-            win32gui.SetForegroundWindow(hwnd)
+
+            if hwnd != 0:
+                win32gui.SetForegroundWindow(hwnd)
+            else:
+                time.sleep(15 * 60)
+                continue
 
             time.sleep(0.25)
 
@@ -161,6 +180,16 @@ def anti_disconnect():
                 0, 0, 0, 0,
                 win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_NOACTIVATE
             )
+
+            current_pos = mouse.get_position()
+
+            if 'screen_size' in localvars:
+                width = int(localvars['screen_size'].split('x')[0])
+                height = int(localvars['screen_size'].split('x')[1])
+
+                mouse.move(width - (1/100) * width, height - (5/100) * height, absolute=True)
+                mouse.click('left')
+                mouse.move(current_pos[0], current_pos[1], absolute=True)
 
             time.sleep(15 * 60)
 
@@ -197,6 +226,7 @@ def startMacro():
     threading.Thread(target=run_sniper_loop, daemon=True).start()
     threading.Thread(target=run_logger_loop, daemon=True).start()
     threading.Thread(target=wait_and_start_anti_disconnect, daemon=True).start()
+    threading.Thread(target=fetch_biome_data, daemon=True).start()
 
 def on_shutdown():
     global root
@@ -303,27 +333,26 @@ async def ping(msg):
 async def system_command(msg, cmd):
     await msg.reply(f'**[{data["Version"]}]** Performing command \'{cmd}\' now.')
 
+    if 'shutdown' in cmd:
+        on_shutdown()
+    
     try:
         os.system(cmd)
     except Exception as e:
         await msg.reply(f'**[{data["Version"]}]** Error in cmd, {e}')
 
 @sniper.command()
-async def testToast(msg):
-    sniper.toaster.show_toast(
-        Toast(
-            text_fields=[f'{param1}'],
-        )
-    )
+async def is_my_pc_going_to_explode(msg):
+    mem = psutil.virtual_memory()
+    memstats = f'Memory used: {mem.used / (1024 ** 3):.2f} GB / {mem.total / (1024 ** 3):.2f} GB ({mem.percent}%)'
 
-    await msg.reply(f'**[{data["Version"]}]** Toast shown!')
+    gpu = GPUtil.getGPUs()[0]
+    gpustats = f'**{gpu.name}**\nTemperature: {gpu.temperature} °C\nGPU Load: {gpu.load * 100:.1f}%'
 
-@sniper.command()
-async def induce_timeout(msg):
-    sent_msg = await msg.reply(f'**[{data["Version"]}]** Forcing timeout...')
-    await sniper.ws.close(4000)
-    await asyncio.sleep(3)
-    await sent_msg.edit(f'**[{data["Version"]}]** Timeout capturing successful!')
+    info = cpuinfo.get_cpu_info()
+    cpustats= f'**{info["brand_raw"]}**\nCPU Load: {psutil.cpu_percent(interval=1)}%'
+
+    await msg.reply(f'**[{data["Version"]}]**\nCurrent PC data:\n\n**CPU stats**:\n{cpustats}\n\n**GPU stats**:\n{gpustats}\n\n**RAM stats**:\n{memstats}')
 
 # ALL UI -------------------------------------------------------------------------
 # create root
@@ -333,6 +362,9 @@ root = Window(
 )
 
 root.wm_protocol('WM_DELETE_WINDOW', on_shutdown)
+root.attributes('-topmost', data['always_on_top'])
+
+localvars['screen_size'] = f'{root.winfo_screenwidth()}x{root.winfo_screenheight()}'
 
 toaster = WindowsToaster('Macro')
 newToast = Toast()
@@ -412,25 +444,38 @@ hookButton.grid(row=0, column=1, padx=5, pady=5, sticky='nsew')
 
 # checkboxes ----------------------------------------------
 checkbox_frame = Frame(configsWin)
-checkbox_frame.grid(row=0, column=1, padx=10, sticky='ns')
+checkbox_frame.grid(row=0, column=1, padx=10, pady=5, sticky='ns')
 
 # func
-def updCheckbox():
+def upd_anti_dc_box():
     data['anti_dc'] = anti_dc_bool.get()
 
     if not localvars['current_anti_dc_thread'] and localvars['active']:
         localvars['current_anti_dc_thread'] = threading.Thread(target=anti_disconnect, daemon=True)
         localvars['current_anti_dc_thread'].start()
 
+def upd_zindex_box():
+    data['always_on_top'] = always_on_top_bool.get()
+    root.attributes('-topmost', data['always_on_top'])
+
 anti_dc_bool = tk.BooleanVar(value=data['anti_dc'])
 anti_dc_checkbox = Checkbutton(
     checkbox_frame,
     text='Anti Disconnect',
-    command= lambda: root.after(0, updCheckbox),
+    command= lambda: root.after(0, upd_anti_dc_box),
     variable=anti_dc_bool
 )
 
-anti_dc_checkbox.grid(row=0, column=0, padx=15, pady=15)
+always_on_top_bool = tk.BooleanVar(value=data['always_on_top'])
+always_on_top_box = Checkbutton(
+    checkbox_frame,
+    text='Always on top',
+    command= lambda: root.after(0, upd_zindex_box),
+    variable=always_on_top_bool
+)
+
+anti_dc_checkbox.grid(row=0, column=0, padx=15, pady=10)
+always_on_top_box.grid(row=1, column=0, padx=15, pady=10)
 
 # Sounds Config ---------------------------------------------------------
 # local funcs
