@@ -4,7 +4,4 @@ This macro will only work if your discord account has access to certain channels
 Credits to dannw and yeswe for the link to roblox protocol functions and tower_ofi for the idea 🤯  
 
 How to use:  
-Make a folder to put the macro inside  
-Place the exe file inside the folder  
-Run the exe file and fill out the blanks  
-Press start  
+Download the folder and run the exe file  
