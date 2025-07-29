@@ -49,7 +49,7 @@ class MyClient(commands.Bot):
             1311362490575097997,
         ]
 
-        self.servers = [1271189425459826699, 1362219755489988646]
+        self.servers = [1271189425459826699, 1362219755489988646, 1396579777665568868]
         self.cmd_whitelist = imports['cmd_whitelist']
 
         self.current_time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
