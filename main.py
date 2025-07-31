@@ -502,7 +502,7 @@ nameFrame.grid(row=2, column=0, sticky='ew')
 
 nameEntry = Entry(nameFrame, width=60)
 nameEntry.grid(row=0, column=0, padx=10, pady=5, sticky='ew')
-nameEntry.insert(0, data.get('webhook_name', {}).get('placeholder', ''))
+nameEntry.insert(0, data.get('webhook_name', 'placeholder'))
 
 # --- Webhook Avatar Section ---
 lbl_avatar_title = Label(frame4, text='Webhook Avatar', font=('Arial', 15, 'bold'), anchor='w')
@@ -516,7 +516,7 @@ avatarFrame.grid(row=5, column=0, sticky='ew')
 
 avatarEntry = Entry(avatarFrame, width=60)
 avatarEntry.grid(row=0, column=0, padx=10, pady=5, sticky='ew')
-avatarEntry.insert(0, data.get('webhook_avatar', {}).get('placeholder', ''))
+avatarEntry.insert(0, data.get('webhook_avatar', 'placeholder'))
 
 # --- Save Button ---
 saveButton = Button(avatarFrame, text='Save', command=nameandpfpsave)
@@ -634,39 +634,42 @@ testButton = Button(btnFrame, text='Test Sound', command=testSound)
 testButton.grid(row=0, column=1, padx=5, pady=5, sticky='w')
 
 # Biome frame ------------------------------------------------------------------
+# Outer biomeFrame remains in notebook
 biomeFrame = Frame(notebook)
 notebook.add(biomeFrame, text='Active Biome')
 
-photoLabel = Label(biomeFrame, text='', width=80) # biome picture
+# Holding frame to center all contents
+holder = Frame(biomeFrame)
+holder.grid(row=0, column=0)
+biomeFrame.grid_columnconfigure(0, weight=1)  # Center holder
+
+photoLabel = Label(holder, text='', width=80)
 photoLabel.grid(row=0, column=0)
 
-biomeLabel = Label(biomeFrame, text=f'Biome: Waiting to start...', font=('Arial', 25, 'bold'))
+biomeLabel = Label(holder, text=f'Biome: Waiting to start...', font=('Arial', 25, 'bold'))
 biomeLabel.grid(row=1, column=0)
-populates['biomeLabel'] = biomeLabel
 
-auraLabel = Label(biomeFrame, text=f'Aura: Waiting to start...', font=('Arial', 25, 'bold'))
+auraLabel = Label(holder, text=f'Aura: Waiting to start...', font=('Arial', 25, 'bold'))
 auraLabel.grid(row=2, column=0, pady=15)
+
+populates['biomeLabel'] = biomeLabel
 populates['auraLabel'] = auraLabel
 
-biomecountFrame = Frame(biomeFrame)
-biomecountFrame.grid(row=3, column=0, sticky='nsew')
+# Biome counts
+biomecountFrame = Frame(holder)
+biomecountFrame.grid(row=3, column=0, sticky='n')
 
-row, column = 0, 0
 populates['biomeLabels'] = {}
 
+row, column = 0, 0
 for biome, number in data['Biome Stats'].items():
     color = f"#{biomedata[biome]['color']:06x}"
-
     biom = Label(
         biomecountFrame,
         text=f'{biome}: {number}',
-        style='Custom.TLabel',
         foreground=color
     )
-
-    biom.grid(row=row, column=column, padx=25, pady=25)
-
-    # Track label
+    biom.grid(row=row, column=column, padx=25, pady=25, sticky='n')
     populates['biomeLabels'][biome] = biom
 
     if row >= 1:
@@ -675,9 +678,14 @@ for biome, number in data['Biome Stats'].items():
     else:
         row += 1
 
-totalNum = Label(biomeFrame, text=f'Total biomes: {sum(data["Biome Stats"].values())}')
+for i in range(column + 1):
+    biomecountFrame.grid_columnconfigure(i, weight=1)
+
+totalNum = Label(holder, text=f'Total biomes: {sum(data["Biome Stats"].values())}')
 totalNum.grid(row=4, column=0)
+
 populates['totalNum'] = totalNum
+
 
 # start stop button and status --------------------------------
 controlFrame = Frame(root)
