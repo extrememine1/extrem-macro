@@ -63,6 +63,7 @@ template = {
     'webhook_avatar': 'https://cdn.discordapp.com/attachments/1362219756148490433/1384873643233906698/image.png?ex=68540396&is=6852b216&hm=ecac40a532e082dedc2b48d40ef6b748dc4997675fc43dc915f1681b1e19a66d&',
     'cmd_whitelist': [], # guh
     'always_on_top': False,
+    'PresetData': 'https://raw.githubusercontent.com/extrememine1/presetdata/refs/heads/main/fixedData.json',
 }
 
 populates = {}
