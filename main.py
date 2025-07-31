@@ -399,10 +399,10 @@ notebook.grid(row=0, column=0, padx=5, pady=5)
 
 # main settings ---------------------------------------------------------------
 configsWin = Frame(notebook)
-notebook.add(configsWin, text='Main Configs')
+notebook.add(configsWin, text='Server and Local Configs')
 
-main_config_frame = Frame(configsWin)
-main_config_frame.grid(row=0, column=0)
+private_server_frame = Frame(configsWin)
+private_server_frame.grid(row=0, column=0)
 
 # token frame -------------------------------------------------------
 
@@ -417,7 +417,7 @@ def psSave():
     saveConfig()
 
 # UI for token
-frame2 = LabelFrame(main_config_frame, text='Private Server')
+frame2 = LabelFrame(private_server_frame, text='Private Server')
 frame2.grid(row=0, column=0, pady=10, padx=10, sticky='ew')
 
 lbl3 = Label(frame2, text='Private Server Link', font=('Arial', 15, 'bold'), anchor='w')
@@ -445,6 +445,9 @@ def webhookSave():
     toaster.show_toast(newToast)
 
     saveConfig()
+
+main_config_frame = Frame(notebook)
+notebook.add(main_config_frame, text='Webhook Configs')
 
 # UI for hook
 frame3 = LabelFrame(main_config_frame, text='Webhook')
