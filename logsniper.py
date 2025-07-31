@@ -47,7 +47,7 @@ async def joinGameSequence():
 class LogSniper:
     def __init__(self, data):
         self.data = data
-        
+
         self.path = os.path.join(os.getenv('LOCALAPPDATA'), 'Roblox', 'logs')
         self.events = {}
         self.sendLogs = True
@@ -158,8 +158,20 @@ class LogSniper:
             }]
         }
 
-        for webhook in self.webhooks:
-            requests.post(webhook, json=payload)
+        for hook in data['Webhooks'].values():
+            response = requests.post(hook, json=payload)
+
+            if str(response.status_code)[0] == '4' and 'avatar_url' in payload:
+                print('Error encountered while requests.post, attempting to use default values to send...')
+                payload.pop('avatar_url')
+
+                response = requests.post(hook, json=payload)
+
+            if str(response.status_code)[0] == '4':
+                print('Still failed, pls open an issue')
+
+            else:
+                print('Webhook avatar url invalid! Please use a different one')
 
         print('Logger is shutting down...')
 
@@ -237,8 +249,20 @@ class LogSniper:
 
             payload['embeds'] = embeds
 
-            for webhook in self.webhooks:
-                requests.post(webhook, json=payload)
+            for hook in data['Webhooks'].values():
+                response = requests.post(hook, json=payload)
+
+                if str(response.status_code)[0] == '4' and 'avatar_url' in payload:
+                    print('Error encountered while requests.post, attempting to use default values to send...')
+                    payload.pop('avatar_url')
+
+                    response = requests.post(hook, json=payload)
+
+                if str(response.status_code)[0] == '4':
+                    print('Still failed, pls open an issue')
+
+                else:
+                    print('Webhook avatar url invalid! Please use a different one')
 
         elif biome != self.last_biome:
             updateCounter = True
@@ -348,7 +372,7 @@ class LogSniper:
                     self.data = await self.events['get_data']()
 
                 if not self.data['active']: return
-                
+
                 if self.data['sendLogs']:
                     await self.check_biome()
 
