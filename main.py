@@ -58,12 +58,12 @@ template = {
         'DREAMSPACE': 0,
         'BLAZING SUN': 0
     },
-    'Version': 'extrem-macro-v2.2.1',
-    'PresetData': 'https://raw.githubusercontent.com/extrememine1/presetdata/refs/heads/main/fixedData.json',
-    'webhook_name': 'onionboy69696969',
+    'Version': 'extrem-macro-v2.2.2',
+    'webhook_name': 'extrem-macro',
     'webhook_avatar': 'https://cdn.discordapp.com/attachments/1362219756148490433/1384873643233906698/image.png?ex=68540396&is=6852b216&hm=ecac40a532e082dedc2b48d40ef6b748dc4997675fc43dc915f1681b1e19a66d&',
     'cmd_whitelist': [], # guh
     'always_on_top': False,
+    'PresetData': 'https://raw.githubusercontent.com/extrememine1/presetdata/refs/heads/main/fixedData.json',
 }
 
 populates = {}
@@ -128,7 +128,7 @@ def populate(biome, aura, updateCounter):
 def fetch_biome_data():
     if localvars['active']:
         biomedata = requests.get(template['PresetData']).json()
-        
+
         logger.fetch_biome_data(biomedata)
         sniper.fetch_biome_data(biomedata)
 
@@ -155,10 +155,10 @@ async def joinGameSequence(delay):
 def anti_disconnect():
     if 'RobloxPlayerBeta.exe' in [proc.info['name'] for proc in psutil.process_iter(['pid', 'name'])]:
         time.sleep(2 * 60 + 30)
-        
+
         while (localvars['active'] and data['anti_dc']):
             hwnd = win32gui.FindWindow(None, 'Roblox')
-                
+
             keyboard.send('shift')
 
             if hwnd != 0:
@@ -219,7 +219,7 @@ def startMacro():
     def wait_and_start_anti_disconnect():
         while 'RobloxPlayerBeta.exe' not in [proc.info['name'] for proc in psutil.process_iter(['pid', 'name'])]:
             time.sleep(1)
-            
+
         localvars['current_anti_dc_thread'] = threading.Thread(target=anti_disconnect, daemon=True)
         localvars['current_anti_dc_thread'].start()
 
@@ -287,7 +287,22 @@ async def join(msg, delay: str = None):
     }
 
     for hook in data['Webhooks'].values():
-        requests.post(hook, json=payload)
+        response = requests.post(hook, json=payload)
+
+        if str(response.status_code)[0] == '4' and 'avatar_url' in payload:
+            print('Error encountered while requests.post, attempting to use default values to send...')
+            payload.pop('avatar_url')
+
+            response = requests.post(hook, json=payload)
+
+        
+
+        if str(response.status_code)[0] == '4':
+            print('Still failed, pls open an issue')
+        elif response.status_code == 204:
+            print('Webhook sent successfully!')
+        else:
+            print('Webhook sent, but avatar URL may be invalid.')
 
 @sniper.command()
 async def leave(msg):
@@ -317,8 +332,23 @@ async def leave(msg):
             }
 
             for hook in data['Webhooks'].values():
-                requests.post(hook, json=payload)
+                response = requests.post(hook, json=payload)
 
+                if str(response.status_code)[0] == '4' and 'avatar_url' in payload:
+                    print('Error encountered while requests.post, attempting to use default values to send...')
+                    payload.pop('avatar_url')
+
+                    response = requests.post(hook, json=payload)
+
+                
+
+            if str(response.status_code)[0] == '4':
+                print('Still failed, pls open an issue')
+            elif response.status_code == 204:
+                print('Webhook sent successfully!')
+            else:
+                print('Webhook sent, but avatar URL may be invalid.')
+                
             localvars['current_anti_dc_thread'] = None
 
             return
@@ -335,7 +365,7 @@ async def system_command(msg, cmd):
 
     if 'shutdown' in cmd:
         on_shutdown()
-    
+
     try:
         os.system(cmd)
     except Exception as e:
@@ -375,10 +405,10 @@ notebook.grid(row=0, column=0, padx=5, pady=5)
 
 # main settings ---------------------------------------------------------------
 configsWin = Frame(notebook)
-notebook.add(configsWin, text='Main Configs')
+notebook.add(configsWin, text='Server and Local Configs')
 
-main_config_frame = Frame(configsWin)
-main_config_frame.grid(row=0, column=0)
+private_server_frame = Frame(configsWin)
+private_server_frame.grid(row=0, column=0)
 
 # token frame -------------------------------------------------------
 
@@ -393,7 +423,7 @@ def psSave():
     saveConfig()
 
 # UI for token
-frame2 = LabelFrame(main_config_frame, text='Private Server')
+frame2 = LabelFrame(private_server_frame, text='Private Server')
 frame2.grid(row=0, column=0, pady=10, padx=10, sticky='ew')
 
 lbl3 = Label(frame2, text='Private Server Link', font=('Arial', 15, 'bold'), anchor='w')
@@ -422,6 +452,9 @@ def webhookSave():
 
     saveConfig()
 
+main_config_frame = Frame(notebook)
+notebook.add(main_config_frame, text='Webhook Configs')
+
 # UI for hook
 frame3 = LabelFrame(main_config_frame, text='Webhook')
 frame3.grid(row=1, column=0, pady=10, padx=10, sticky='ew')
@@ -441,6 +474,55 @@ hookEntry.insert(0, data['Webhooks'].get('placeholder', ''))
 
 hookButton = Button(hookFrame, text='Save', command=webhookSave)
 hookButton.grid(row=0, column=1, padx=5, pady=5, sticky='nsew')
+
+# Bot name and pfp -----------------------------------------------------
+def nameandpfpsave():
+    name = nameEntry.get()
+    avatar = avatarEntry.get()
+
+    data['webhook_name'] = name  # Fixed from 'hook' to 'name'
+    data['webhook_avatar'] = avatar
+
+    newToast.text_fields = [f'Webhook name saved as {name} and avatar saved']
+    toaster.show_toast(newToast)
+
+    saveConfig()
+
+
+frame4 = LabelFrame(main_config_frame, text='Webhook Name and Avatar')
+frame4.grid(row=2, column=0, pady=10, padx=10, sticky='ew')
+
+# --- Webhook Name Section ---
+lbl_name_title = Label(frame4, text='Webhook Name', font=('Arial', 15, 'bold'), anchor='w')
+lbl_name_title.grid(row=0, column=0, padx=10, pady=5, sticky='w')
+
+lbl_name_desc = Label(frame4, text='Insert your webhook name in here.', anchor='w')
+lbl_name_desc.grid(row=1, column=0, padx=10, sticky='w')
+
+nameFrame = Frame(frame4)
+nameFrame.grid(row=2, column=0, sticky='ew')
+
+nameEntry = Entry(nameFrame, width=60)
+nameEntry.grid(row=0, column=0, padx=10, pady=5, sticky='ew')
+nameEntry.insert(0, data.get('webhook_name', 'placeholder'))
+
+# --- Webhook Avatar Section ---
+lbl_avatar_title = Label(frame4, text='Webhook Avatar', font=('Arial', 15, 'bold'), anchor='w')
+lbl_avatar_title.grid(row=3, column=0, padx=10, pady=5, sticky='w')
+
+lbl_avatar_desc = Label(frame4, text='Insert your webhook avatar in here.', anchor='w')
+lbl_avatar_desc.grid(row=4, column=0, padx=10, sticky='w')
+
+avatarFrame = Frame(frame4)
+avatarFrame.grid(row=5, column=0, sticky='ew')
+
+avatarEntry = Entry(avatarFrame, width=60)
+avatarEntry.grid(row=0, column=0, padx=10, pady=5, sticky='ew')
+avatarEntry.insert(0, data.get('webhook_avatar', 'placeholder'))
+
+# --- Save Button ---
+saveButton = Button(avatarFrame, text='Save', command=nameandpfpsave)
+saveButton.grid(row=0, column=1, padx=5, pady=5, sticky='nsew')
 
 # checkboxes ----------------------------------------------
 checkbox_frame = Frame(configsWin)
@@ -554,39 +636,42 @@ testButton = Button(btnFrame, text='Test Sound', command=testSound)
 testButton.grid(row=0, column=1, padx=5, pady=5, sticky='w')
 
 # Biome frame ------------------------------------------------------------------
+# Outer biomeFrame remains in notebook
 biomeFrame = Frame(notebook)
 notebook.add(biomeFrame, text='Active Biome')
 
-photoLabel = Label(biomeFrame, text='', width=80) # biome picture
+# Holding frame to center all contents
+holder = Frame(biomeFrame)
+holder.grid(row=0, column=0)
+biomeFrame.grid_columnconfigure(0, weight=1)  # Center holder
+
+photoLabel = Label(holder, text='', width=80)
 photoLabel.grid(row=0, column=0)
 
-biomeLabel = Label(biomeFrame, text=f'Biome: Waiting to start...', font=('Arial', 25, 'bold'))
+biomeLabel = Label(holder, text=f'Biome: Waiting to start...', font=('Arial', 25, 'bold'))
 biomeLabel.grid(row=1, column=0)
-populates['biomeLabel'] = biomeLabel
 
-auraLabel = Label(biomeFrame, text=f'Aura: Waiting to start...', font=('Arial', 25, 'bold'))
+auraLabel = Label(holder, text=f'Aura: Waiting to start...', font=('Arial', 25, 'bold'))
 auraLabel.grid(row=2, column=0, pady=15)
+
+populates['biomeLabel'] = biomeLabel
 populates['auraLabel'] = auraLabel
 
-biomecountFrame = Frame(biomeFrame)
-biomecountFrame.grid(row=3, column=0, sticky='nsew')
+# Biome counts
+biomecountFrame = Frame(holder)
+biomecountFrame.grid(row=3, column=0, sticky='n')
 
-row, column = 0, 0
 populates['biomeLabels'] = {}
 
+row, column = 0, 0
 for biome, number in data['Biome Stats'].items():
     color = f"#{biomedata[biome]['color']:06x}"
-    
     biom = Label(
         biomecountFrame,
         text=f'{biome}: {number}',
-        style='Custom.TLabel',
         foreground=color
     )
-
-    biom.grid(row=row, column=column, padx=25, pady=25)
-
-    # Track label
+    biom.grid(row=row, column=column, padx=25, pady=25, sticky='n')
     populates['biomeLabels'][biome] = biom
 
     if row >= 1:
@@ -595,9 +680,14 @@ for biome, number in data['Biome Stats'].items():
     else:
         row += 1
 
-totalNum = Label(biomeFrame, text=f'Total biomes: {sum(data["Biome Stats"].values())}')
+for i in range(column + 1):
+    biomecountFrame.grid_columnconfigure(i, weight=1)
+
+totalNum = Label(holder, text=f'Total biomes: {sum(data["Biome Stats"].values())}')
 totalNum.grid(row=4, column=0)
+
 populates['totalNum'] = totalNum
+
 
 # start stop button and status --------------------------------
 controlFrame = Frame(root)

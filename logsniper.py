@@ -47,12 +47,12 @@ async def joinGameSequence():
 class LogSniper:
     def __init__(self, data):
         self.data = data
-        
+
         self.path = os.path.join(os.getenv('LOCALAPPDATA'), 'Roblox', 'logs')
         self.events = {}
         self.sendLogs = True
 
-        self.webhooks = [hook for hook in data['Webhooks'].values()]
+        self.webhooks = [hook for hook in self.data['Webhooks'].values()]
         self.pslink = data['Server']
 
         self.current_time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
@@ -158,8 +158,23 @@ class LogSniper:
             }]
         }
 
-        for webhook in self.webhooks:
-            requests.post(webhook, json=payload)
+        for hook in self.data['Webhooks'].values():
+            response = requests.post(hook, json=payload)
+
+            if str(response.status_code)[0] == '4' and 'avatar_url' in payload:
+                print('Error encountered while requests.post, attempting to use default values to send...')
+                payload.pop('avatar_url')
+
+                response = requests.post(hook, json=payload)
+
+            
+
+            if 200 <= response.status_code < 300:
+                pass
+            elif str(response.status_code)[0] == '4':
+                print('Still failed, pls open an issue')
+            else:
+                print('Unexpected response — possibly invalid avatar URL or other issue')
 
         print('Logger is shutting down...')
 
@@ -237,8 +252,23 @@ class LogSniper:
 
             payload['embeds'] = embeds
 
-            for webhook in self.webhooks:
-                requests.post(webhook, json=payload)
+            for hook in self.data['Webhooks'].values():
+                response = requests.post(hook, json=payload)
+
+                if str(response.status_code)[0] == '4' and 'avatar_url' in payload:
+                    print('Error encountered while requests.post, attempting to use default values to send...')
+                    payload.pop('avatar_url')
+
+                    response = requests.post(hook, json=payload)
+
+                
+
+                if 200 <= response.status_code < 300:
+                    pass
+                elif str(response.status_code)[0] == '4':
+                    print('Still failed, pls open an issue')
+                else:
+                    print('Unexpected response — possibly invalid avatar URL or other issue')
 
         elif biome != self.last_biome:
             updateCounter = True
@@ -291,11 +321,26 @@ class LogSniper:
             embeds.append(embed1)
 
             payload['embeds'] = embeds
+            
 
-            for webhook in self.webhooks:
-                res = requests.post(webhook, json=payload)
-                self.appendlogs(f'[LINE 291 IN CODE, LINE {self.last_position} IN LOGFILE] Message sent with status code {res.status_code} at {self.current_time}')
+            for hook in self.data['Webhooks'].values():
+                response = requests.post(hook, json=payload)
+                self.appendlogs(f'[LINE 291 IN CODE, LINE {self.last_position} IN LOGFILE] Message sent with status code {response.status_code} at {self.current_time}')
 
+                if str(response.status_code)[0] == '4' and 'avatar_url' in payload:
+                    print('Error encountered while requests.post, attempting to use default values to send...')
+                    payload.pop('avatar_url')
+
+                    response = requests.post(hook, json=payload)
+
+                if 200 <= response.status_code < 300:
+                    pass
+                elif str(response.status_code)[0] == '4':
+                    print('Still failed, pls open an issue')
+                else:
+                    print('Unexpected response — possibly invalid avatar URL or other issue')
+
+            
         if updateCounter:
             self.appendlogs(f'[LINE 295 IN CODE, LINE {self.last_position} IN LOGFILE] {biome} detected at {self.current_time}.')
 
@@ -338,8 +383,24 @@ class LogSniper:
             ]
         }
 
-        for webhook in self.webhooks:
-            requests.post(webhook, json=payload)
+        for hook in self.data['Webhooks'].values():
+            response = requests.post(hook, json=payload)
+            self.appendlogs(f'[LINE 291 IN CODE, LINE {self.last_position} IN LOGFILE] Message sent with status code {response.status_code} at {self.current_time}')
+
+            if str(response.status_code)[0] == '4' and 'avatar_url' in payload:
+                print('Error encountered while requests.post, attempting to use default values to send...')
+                payload.pop('avatar_url')
+
+                response = requests.post(hook, json=payload)
+
+            if 200 <= response.status_code < 300:
+                pass
+            elif str(response.status_code)[0] == '4':
+                print('Still failed, pls open an issue')
+            else:
+                print('Unexpected response — possibly invalid avatar URL or other issue')
+
+            
         while True:
             self.current_time = datetime.now().strftime('%Y-%m-%d %H:%M.%S')
 
@@ -348,7 +409,7 @@ class LogSniper:
                     self.data = await self.events['get_data']()
 
                 if not self.data['active']: return
-                
+
                 if self.data['sendLogs']:
                     await self.check_biome()
 
