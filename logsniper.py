@@ -14,7 +14,7 @@ import requests
 from pypresence import Presence
 
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 # funcs
 async def joinGameSequence():
@@ -180,10 +180,96 @@ class LogSniper:
 
         return
 
-    async def check_biome(self): # this function calls read logs and get latest already
+    async def merchant_detected(self, merchant, line, timestamp):
+        merchant_spawntime = line.split(',')[0]
+
+        dt = datetime.strptime(merchant_spawntime, "%Y-%m-%dT%H:%M:%S.%fZ")
+        dt = dt.replace(tzinfo=timezone.utc)
+
+        merchant_timestamp = int(dt.timestamp())
+        merchant_remaining_time = self.biomedata["merchants"][merchant]["duration"]
+        
+        if timestamp > merchant_timestamp + 30: return #+30 is tolerance
+        
+        payload = {
+            'username': self.data['webhook_name'] + ' | Merchants',
+            'avatar_url': self.data['webhook_avatar']
+        }
+
+        payload['content'] = f'<@{(await self.events["get_discord_data"]()).user.id}>' if merchant == 'Eden' else ''
+
+        # embeds --------------------------------------------------
+        embeds = []
+
+        discord_time = f"<t:{merchant_timestamp}:F>"
+
+        embed1 = {
+            'title': f'{merchant} Found!',
+            'description': f'Private Server:\n{self.pslink}',
+            'footer': {'text': self.data['Version']},
+            'fields': [
+                {
+                    'name': 'Merchant Spawned at',
+                    'value': discord_time,
+                    'inline': True
+                },
+                {
+                    'name': 'Merchant Leaving in',
+                    'value': f'<t:{merchant_timestamp + merchant_remaining_time}:R>' if isinstance(self.biomedata["merchants"][merchant]["duration"], int) else '**NOT FOUND**',
+                    'inline': True
+                },
+            ]
+        }
+
+        embeds.append(embed1)
+
+        payload['embeds'] = embeds
+
+        for hook in self.data['Webhooks'].values():
+            response = requests.post(hook, json=payload)
+            
+            if str(response.status_code)[0] == '4' and 'avatar_url' in payload:
+                print('Error encountered while requests.post, attempting to use default values to send...')
+                payload.pop('avatar_url')
+
+                response = requests.post(hook, json=payload)
+
+            if 200 <= response.status_code < 300:
+                pass
+            elif str(response.status_code)[0] == '4':
+                print('Still failed, pls open an issue')
+            else:
+                print('Unexpected response — possibly invalid avatar URL or other issue')
+
+    async def perform_checks(self):
         logpath = self.get_latest_log_file()
         log_lines = self.read_logfile(logpath)
 
+        if not log_lines:
+            return
+
+        await self.check_biome(log_lines)
+        await self.check_merchant(log_lines)
+
+    async def check_merchant(self, log_lines):
+        for line in reversed(log_lines):
+            if 'Incoming MessageReceived Status' in line:
+                timestamp = int(time.time())
+                merchant_match = {
+                    "[Merchant]: Mari has arrived on the island...": lambda l, t: self.merchant_detected('Mari', l, t),
+                    "<font color=\"#a352ff\">[Merchant]: Jester has arrived on the island!!</font>": lambda l, t: self.merchant_detected('Jester', l, t),
+                    'asdasdasd': lambda l, t: self.merchant_detected('Eden', l, t), # placeholder
+                }
+
+                if "&lt;" in line:
+                    continue
+                
+                for match, action in merchant_match.items():
+                    if match in line:
+                        await action(line, timestamp)
+                        return
+
+    async def check_biome(self, log_lines): # this function calls read logs and get latest already
         if not log_lines:
             return
 
@@ -261,7 +347,6 @@ class LogSniper:
 
                     response = requests.post(hook, json=payload)
 
-                
 
                 if 200 <= response.status_code < 300:
                     pass
@@ -411,9 +496,9 @@ class LogSniper:
                 if not self.data['active']: return
 
                 if self.data['sendLogs']:
-                    await self.check_biome()
+                    await self.perform_checks()
 
             elif __name__ == '__main__':
-                await self.check_biome()
+                await self.perform_checks()
 
             await asyncio.sleep(1)

@@ -13,6 +13,7 @@ import win32gui
 import win32con
 import GPUtil
 import cpuinfo
+import subprocess
 
 import keyboard
 import mouse
@@ -58,7 +59,7 @@ template = {
         'DREAMSPACE': 0,
         'BLAZING SUN': 0
     },
-    'Version': 'extrem-macro-v2.2.2',
+    'Version': 'extrem-macro-v3',
     'webhook_name': 'extrem-macro',
     'webhook_avatar': 'https://cdn.discordapp.com/attachments/1362219756148490433/1384873643233906698/image.png?ex=68540396&is=6852b216&hm=ecac40a532e082dedc2b48d40ef6b748dc4997675fc43dc915f1681b1e19a66d&',
     'cmd_whitelist': [], # guh
@@ -202,6 +203,12 @@ def startMacro():
     startButton['state'] = 'disabled'
     statusLabel.config(text='Status: Running', bootstyle='success')
 
+    '''try:
+        subprocess.run(["w32tm", "/resync"], check=True)
+        print("Time sync initiated.")
+    except subprocess.CalledProcessError as e:
+        print("Time sync failed:", e)'''
+
     def run_sniper_loop():
         while localvars['active']:
             loop = asyncio.new_event_loop()
@@ -249,6 +256,17 @@ def run_in_main_thread(func, *args):
 async def on_biome(biome, aura, updateCounter=False):
     populate(biome, aura, updateCounter)
 
+@logger.event
+async def get_discord_data():
+    if sniper.ready_event.is_set():
+        return sniper
+    
+    while True:
+        await asyncio.sleep(1)
+
+        if sniper.ready_event.is_set():
+            return sniper
+
 @sniper.event
 @logger.event
 async def get_data():
@@ -295,7 +313,6 @@ async def join(msg, delay: str = None):
 
             response = requests.post(hook, json=payload)
 
-        
 
         if str(response.status_code)[0] == '4':
             print('Still failed, pls open an issue')

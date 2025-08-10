@@ -55,6 +55,8 @@ class MyClient(commands.Bot):
         self.current_time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         self.currentLog = f'logs/{self.current_time}-sniper-log'
 
+        self.ready_event = asyncio.Event()
+        
         # init funcs
         if not mixer:
             pygame.mixer.init()
@@ -67,21 +69,34 @@ class MyClient(commands.Bot):
         with open(self.currentLog, 'w', encoding='utf-8') as file:
             file.write('')
 
-    def __getitem__(self, key):
-        iterable = {
-            'Toaster': self.toaster
-        }
-        
-        if key in iterable.keys():
-            return iterable[key]
-        raise KeyError(key)
-
     def event(self, coro):
         self.events[coro.__name__] = coro
         return coro
+
+    async def proc_commands_for_others(self, message):
+        content = message.content
+        
+        if not content.startswith(self.command_prefix): return
+
+        parts = content[len(self.command_prefix):].strip().split()
+
+        if not parts: return
+
+        cmd = parts[0].lower()
+        args = parts[1:]
+
+        for command in self.commands:
+            if command.name == cmd:
+                if args:
+                    await command.callback(message, *args)
+                    
+                else:
+                    await command.callback(message)
     
     async def on_ready(self):
         print('Logged on as', self.user)
+
+        self.ready_event.set()
 
     async def on_message(self, message):
         self.current_time = datetime.now().strftime('%Y-%m-%d %H:%M.%S')
@@ -93,8 +108,11 @@ class MyClient(commands.Bot):
             if 'on_glitch' in self.events:
                 await self.events['on_glitch'](message) # PORT
 
-        if message.author.id in (*self.cmd_whitelist, self.user.id):
+        if message.author.id == self.user.id:
             await self.process_commands(message)
+            
+        elif message.author.id in self.cmd_whitelist:
+            await self.proc_commands_for_others(message)
 
     def appendlogs(self, message):
         with open(self.currentLog, 'a', encoding='utf-8') as file:
