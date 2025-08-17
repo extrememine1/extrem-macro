@@ -16,6 +16,8 @@ from pypresence import Presence
 import time
 from datetime import datetime, timezone
 
+from tkinter import messagebox as mb
+
 # funcs
 async def joinGameSequence():
     await asyncio.sleep(2.5)
@@ -454,6 +456,26 @@ class LogSniper:
             except Exception as e:
                 self.appendlogs(f'Exception: [{e}] has occured.')
                 print(f'EXCEPTION CAPTURED! Check logfile {self.currentLog} for more info')
+
+        if not os.path.exists(os.path.join(os.getenv('LOCALAPPDATA'), 'Bloxstrap')):
+            mb.showwarning('Please download bloxstrap', 'Bloxstrap isnt downloaded, unable to snipe merchant.\nIf you don\'t want to merchant snipe, please close and ignore this waning')
+
+        else:
+            fflags = {}
+            
+            with open(os.path.join(os.getenv('LOCALAPPDATA'), 'Bloxstrap', 'Modifications', 'ClientSettings', 'ClientAppSettings.json'), 'r') as f:
+                fflags = json.load(f)
+
+            targetitems = {
+                'FStringDebugLuaLogLevel': 'trace',
+                'FStringDebugLuaLogPattern': 'ExpChat/mountClientApp'
+            }
+
+            if not all(fflags.get(k) == v for k, v in targetitems.items()):
+                fflags.update(targetitems)
+                
+            with open(os.path.join(os.getenv('LOCALAPPDATA'), 'Bloxstrap', 'Modifications', 'ClientSettings', 'ClientAppSettings.json'), 'w') as f:
+                json.dump(fflags)
 
         payload = {
             'username': self.data['webhook_name'],
