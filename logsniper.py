@@ -475,7 +475,7 @@ class LogSniper:
                 fflags.update(targetitems)
                 
             with open(os.path.join(os.getenv('LOCALAPPDATA'), 'Bloxstrap', 'Modifications', 'ClientSettings', 'ClientAppSettings.json'), 'w') as f:
-                json.dump(fflags)
+                json.dump(fflags, f)
 
         payload = {
             'username': self.data['webhook_name'],
