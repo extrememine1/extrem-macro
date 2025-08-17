@@ -447,16 +447,6 @@ class LogSniper:
         if 'get_data' in self.events:
             self.data = await self.events['get_data']()
 
-        if 'RobloxPlayerBeta.exe' not in [proc.info['name'] for proc in psutil.process_iter(['pid', 'name'])]:
-            self.blacklisted_files.append(self.get_latest_log_file())
-
-            try:
-                os.startfile(self.convert_roblox_link(self.data['Server']))
-
-            except Exception as e:
-                self.appendlogs(f'Exception: [{e}] has occured.')
-                print(f'EXCEPTION CAPTURED! Check logfile {self.currentLog} for more info')
-
         if not os.path.exists(os.path.join(os.getenv('LOCALAPPDATA'), 'Bloxstrap')):
             mb.showwarning('Please download bloxstrap', 'Bloxstrap isnt downloaded, unable to snipe merchant.\nIf you don\'t want to merchant snipe, please close and ignore this waning')
 
@@ -476,6 +466,16 @@ class LogSniper:
                 
             with open(os.path.join(os.getenv('LOCALAPPDATA'), 'Bloxstrap', 'Modifications', 'ClientSettings', 'ClientAppSettings.json'), 'w') as f:
                 json.dump(fflags, f)
+
+        if 'RobloxPlayerBeta.exe' not in [proc.info['name'] for proc in psutil.process_iter(['pid', 'name'])]:
+            self.blacklisted_files.append(self.get_latest_log_file())
+
+            try:
+                os.startfile(self.convert_roblox_link(self.data['Server']))
+
+            except Exception as e:
+                self.appendlogs(f'Exception: [{e}] has occured.')
+                print(f'EXCEPTION CAPTURED! Check logfile {self.currentLog} for more info')
 
         payload = {
             'username': self.data['webhook_name'],
