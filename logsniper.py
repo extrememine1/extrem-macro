@@ -145,9 +145,19 @@ class LogSniper:
     def fetch_biome_data(self, biomedata):
         self.biomedata = biomedata
 
-    def on_shutdown(self):
+    def format_time(self, seconds):
+        seconds = int(seconds)
+        
+        h = seconds // 3600
+        m = (seconds % 3600) // 60
+        s = seconds % 60
+        return f"{h}h {m}m {s}s"
+
+    def on_shutdown(self, biomes_found):
         timestamp = int(time.time())
         discord_time = f"<t:{timestamp}:R>"
+
+        session_length = self.format_time(timestamp - self.macro_start_time)
 
         payload = {
             'username': self.data['webhook_name'],
@@ -160,6 +170,28 @@ class LogSniper:
             }]
         }
 
+        biome_text = None
+
+        for biome, val in biomes_found.items():
+            biome_text += f'{biome}: {val}\n'
+
+        biome_text = 'None' if biome_text == None else biome_text
+
+        fields = [
+            {
+                'name': 'Session Length',
+                'value': session_length,
+                'inline': True
+            },
+            {
+                'name': 'Biomes found this session',
+                'value': biome_text,
+                'inline': False
+            },
+        ]
+
+        payload['embeds'][0]['fields'] = fields
+
         for hook in self.data['Webhooks'].values():
             response = requests.post(hook, json=payload)
 
@@ -168,8 +200,6 @@ class LogSniper:
                 payload.pop('avatar_url')
 
                 response = requests.post(hook, json=payload)
-
-            
 
             if 200 <= response.status_code < 300:
                 pass
@@ -216,7 +246,7 @@ class LogSniper:
                     'inline': True
                 },
                 {
-                    'name': 'Merchant Leaving in',
+                    'name': 'Merchant Leaving / Left',
                     'value': f'<t:{merchant_timestamp + merchant_remaining_time}:R>' if isinstance(self.biomedata["merchants"][merchant]["duration"], int) else '**NOT FOUND**',
                     'inline': True
                 },
@@ -358,7 +388,7 @@ class LogSniper:
                     print('Unexpected response — possibly invalid avatar URL or other issue')
 
         elif biome != self.last_biome:
-            updateCounter = True
+            updateCounter = (True if biome != 'NORMAL' else False)
             description = f'Private Server:\n{self.pslink}' if biome != 'NORMAL' else ''
             title = f'Biome {"Ended" if biome == "NORMAL" else "Started"} | {self.last_biome if biome == "NORMAL" else biome}'
 
@@ -388,7 +418,7 @@ class LogSniper:
                         'inline': True
                     },
                     {
-                        'name': 'Biome Ending in',
+                        'name': 'Biome Ending / Ended',
                         'value': f'<t:{timestamp + self.biomedata[biome]["duration"]}:R>' if isinstance(self.biomedata[biome]["duration"], int) else '**NOT FOUND**',
                         'inline': True
                     },
@@ -448,7 +478,7 @@ class LogSniper:
             self.data = await self.events['get_data']()
 
         if not os.path.exists(os.path.join(os.getenv('LOCALAPPDATA'), 'Bloxstrap')):
-            mb.showwarning('Please download bloxstrap', 'Bloxstrap isnt downloaded, unable to snipe merchant.\nIf you don\'t want to merchant snipe, please close and ignore this waning')
+            mb.showwarning('Please download bloxstrap', 'Bloxstrap isnt downloaded, unable to snipe merchant.\nIf you don\'t want to merchant snipe, please close and ignore this warning')
 
         else:
             fflags = {}

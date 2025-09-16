@@ -38,9 +38,10 @@ localvars = {
     'sendLogs': True,
     'sniper_log': None,
     'current_anti_dc_thread': None,
-    'screen_size': None
+    'screen_size': None,
+    'biomes_found': {}
 }
-template = {
+template = { # ALL TEMPLATE DATA IS STORED UNDER DATA, ONLY USE THIS FOR REFERENCE DO NOT CALL IT FOR DATA
     'Token': '',
     'Server': '',
     'Webhooks': {},
@@ -59,7 +60,7 @@ template = {
         'DREAMSPACE': 0,
         'BLAZING SUN': 0
     },
-    'Version': 'extrem-macro-v3',
+    'Version': 'extrem-macro-v3.1',
     'webhook_name': 'extrem-macro',
     'webhook_avatar': 'https://cdn.discordapp.com/attachments/1362219756148490433/1384873643233906698/image.png?ex=68540396&is=6852b216&hm=ecac40a532e082dedc2b48d40ef6b748dc4997675fc43dc915f1681b1e19a66d&',
     'cmd_whitelist': [], # guh
@@ -116,9 +117,14 @@ def populate(biome, aura, updateCounter):
     if updateCounter:
         if biome in data['Biome Stats']:
             data['Biome Stats'][biome] += 1
-        elif biome != 'NORMAL':
-            data['Biome Stats'][biome] = 1  # fallback in case biome is missing
+        else:
+            data['Biome Stats'][biome] = 1
 
+        if biome in localvars['biomes_found']:
+            localvars['biomes_found'][biome] += 1
+        else:
+            localvars['biomes_found'][biome] = 1
+            
         if biome in populates['biomeLabels']:
             populates['biomeLabels'][biome].config(text=f"{biome}: {data['Biome Stats'][biome]}")
 
@@ -235,15 +241,14 @@ def startMacro():
     threading.Thread(target=wait_and_start_anti_disconnect, daemon=True).start()
     threading.Thread(target=fetch_biome_data, daemon=True).start()
 
-def on_shutdown():
+def on_shutdown(): #shutdown function
     global root
 
     if localvars['active']:
         localvars['active'] = False
 
-        logger.on_shutdown()
+        logger.on_shutdown(localvars['biomes_found']) #sends the macro ended message
         asyncio.run_coroutine_threadsafe(sniper.close(), localvars['sniper_log'])
-        print('Sniper closed successfully')
 
     mixer.quit()
     root.destroy()

@@ -85,6 +85,8 @@ class MyClient(commands.Bot):
         cmd = parts[0].lower()
         args = parts[1:]
 
+        if cmd in ['system_command', 'is_my_pc_going_to_explode']: return
+
         for command in self.commands:
             if command.name == cmd:
                 if args:
