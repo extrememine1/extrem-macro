@@ -170,12 +170,12 @@ class LogSniper:
             }]
         }
 
-        biome_text = None
+        biome_text = ''
 
         for biome, val in biomes_found.items():
             biome_text += f'{biome}: {val}\n'
 
-        biome_text = 'None' if biome_text == None else biome_text
+        biome_text = 'None' if biome_text == '' else biome_text
 
         fields = [
             {
