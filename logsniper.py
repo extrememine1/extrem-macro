@@ -18,6 +18,9 @@ from datetime import datetime, timezone
 
 from tkinter import messagebox as mb
 
+import pygame
+from windows_toasts import *
+
 # funcs
 async def joinGameSequence():
     await asyncio.sleep(2.5)
@@ -45,9 +48,34 @@ async def joinGameSequence():
         win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_NOACTIVATE
     )
 
+def show_toast(field, function):
+    toast = Toast(
+        text_fields=[field],
+        on_activated=function
+    )
+    
+    self.toaster.show_toast(toast)
+
+def push_window():
+    hwnd = win32gui.FindWindow(None, 'Roblox')
+
+    try:
+        if hwnd != 0:
+            win32gui.SetForegroundWindow(hwnd)
+        else:
+            time.sleep(15 * 60)
+
+    except Exception as e:
+        keyboard.send('shift')
+
+        if hwnd != 0:
+            win32gui.SetForegroundWindow(hwnd)
+        else:
+            time.sleep(15 * 60)
+
 # class
 class LogSniper:
-    def __init__(self, data):
+    def __init__(self, data, mixer=False, toaster=WindowsToaster('Macro Alert')):
         self.data = data
 
         self.path = os.path.join(os.getenv('LOCALAPPDATA'), 'Roblox', 'logs')
@@ -60,9 +88,11 @@ class LogSniper:
         self.current_time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         self.currentLog = f'logs/{self.current_time}-logger-log'
 
-        self.macro_start_time = time.time()
+        self.macro_start_time = 0
 
         self.biomedata = requests.get(data['PresetData']).json()
+
+        self.toaster = toaster
 
         # self.rpc = Presence(1371122806393143367)
         # self.rpc.connect()
@@ -80,6 +110,9 @@ class LogSniper:
         self.last_position = 0
         self.prev_file = None
         self.blacklisted_files = []
+
+        if not mixer:
+            pygame.mixer.init()
 
     def event(self, coro):
         self.events[coro.__name__] = coro
@@ -170,12 +203,26 @@ class LogSniper:
             }]
         }
 
+        # biomes
         biome_text = ''
-
-        for biome, val in biomes_found.items():
+        total_biomes = sum(self.data['biomes_found'].values())
+        
+        biomes = {elm: self.data['biomes_found'][elm] for elm in sorted(self.data['biomes_found'], key=lambda k: self.data['biomes_found'][k], reverse=True)}
+        for biome, val in biomes.items():
             biome_text += f'{biome}: {val}\n'
 
-        biome_text = 'None' if biome_text == '' else biome_text
+        biome_text = 'None' if biome_text == '' else biome_text.strip('\n')
+        
+        # merchants
+        merchant_text = ''
+        total_merchants = sum(self.data['merchants_found'].values())
+
+        merchants = {elm: self.data['merchants_found'][elm] for elm in sorted(self.data['merchants_found'], key=lambda k: self.data['merchants_found'][k], reverse=True)}
+
+        for merchant, val in merchants.items():
+            merchant_text += f'{merchant}: {val}\n'
+
+        merchant_text = 'None' if merchant_text == '' else merchant_text.strip('\n')
 
         fields = [
             {
@@ -184,8 +231,13 @@ class LogSniper:
                 'inline': True
             },
             {
-                'name': 'Biomes found this session',
+                'name': f'Biomes found this session ({total_biomes})',
                 'value': biome_text,
+                'inline': False
+            },
+            {
+                'name': f'Merchants found this session ({total_merchants})',
+                'value': merchant_text,
                 'inline': False
             },
         ]
@@ -196,7 +248,7 @@ class LogSniper:
             response = requests.post(hook, json=payload)
 
             if str(response.status_code)[0] == '4' and 'avatar_url' in payload:
-                print('Error encountered while requests.post, attempting to use default values to send...')
+                print(f'[LINE 251] Error encountered while requests.post, attempting to use default values to send...\nResponse code:{response.status_code}')
                 payload.pop('avatar_url')
 
                 response = requests.post(hook, json=payload)
@@ -213,15 +265,29 @@ class LogSniper:
         return
 
     async def merchant_detected(self, merchant, line, timestamp):
+        print(f'[DEBUG] LINE:\n{line}')
         merchant_spawntime = line.split(',')[0]
 
         dt = datetime.strptime(merchant_spawntime, "%Y-%m-%dT%H:%M:%S.%fZ")
         dt = dt.replace(tzinfo=timezone.utc)
+        print(f'[DEBUG] DT:\n{dt}')
 
         merchant_timestamp = int(dt.timestamp())
         merchant_remaining_time = self.biomedata["merchants"][merchant]["duration"]
+        print(f'[DEBUG] MERCHANT TIMESTAMP:\n{merchant_timestamp}\n\n')
         
-        if timestamp > merchant_timestamp + 30: return #+30 is tolerance
+        if timestamp >= merchant_timestamp + 5: return # +5 is tolerance, write any logic below this line
+
+        if merchant == 'Eden':
+            if os.path.isfile(self.data['Rare Merchant Sound']):
+                pygame.mixer.music.load(self.data['Rare Merchant Sound'])
+                pygame.mixer.music.play()
+                
+            else:
+                print("[RARE MERCHANT] ⚠️ Sound file not found.")
+
+        if 'on_merchant' in self.events:
+            await self.events['on_merchant'](merchant)
         
         payload = {
             'username': self.data['webhook_name'] + ' | Merchants',
@@ -250,7 +316,8 @@ class LogSniper:
                     'value': f'<t:{merchant_timestamp + merchant_remaining_time}:R>' if isinstance(self.biomedata["merchants"][merchant]["duration"], int) else '**NOT FOUND**',
                     'inline': True
                 },
-            ]
+            ],
+            'color': self.biomedata['merchants'][merchant]['color']
         }
 
         embeds.append(embed1)
@@ -261,7 +328,7 @@ class LogSniper:
             response = requests.post(hook, json=payload)
             
             if str(response.status_code)[0] == '4' and 'avatar_url' in payload:
-                print('Error encountered while requests.post, attempting to use default values to send...')
+                print(f'[LINE 331] Error encountered while requests.post, attempting to use default values to send...\nResponse code:{response.status_code}')
                 payload.pop('avatar_url')
 
                 response = requests.post(hook, json=payload)
@@ -287,19 +354,25 @@ class LogSniper:
         for line in reversed(log_lines):
             if 'Incoming MessageReceived Status' in line:
                 timestamp = int(time.time())
-                merchant_match = {
+                
+                match = {
                     "[Merchant]: Mari has arrived on the island...": lambda l, t: self.merchant_detected('Mari', l, t),
                     "<font color=\"#a352ff\">[Merchant]: Jester has arrived on the island!!</font>": lambda l, t: self.merchant_detected('Jester', l, t),
-                    'asdasdasd': lambda l, t: self.merchant_detected('Eden', l, t), # placeholder
+                    ("Eden has appeared", "<"): lambda l, t: self.merchant_detected('Eden', l, t),
                 }
 
                 if "&lt;" in line:
                     continue
-                
-                for match, action in merchant_match.items():
-                    if match in line:
-                        await action(line, timestamp)
-                        return
+
+                for match, action in match.items():
+                    if isinstance(match, tuple):
+                        if all(m in line for m in match):
+                            await action(line, timestamp)
+                            return
+                    else:
+                        if match in line:
+                            await action(line, timestamp)
+                            return
 
     async def check_biome(self, log_lines): # this function calls read logs and get latest already
         if not log_lines:
@@ -307,29 +380,53 @@ class LogSniper:
 
         for line in reversed(log_lines):
             if '[FLog::Output]' in line:
-                biome = None
-                aura = None
+                matchstring = r'\[BloxstrapRPC\] (.*)'
 
-                auramatch = re.search(r'"state":"Equipped \\"(.*?)\\"', line)
+                match = re.search(matchstring, line) # fnc search to find stuff in mid
 
-                aura = auramatch.group(1).replace('_', ' ').replace('â˜…', '⭐') if auramatch else self.last_aura
-                self.last_aura = aura if auramatch else self.last_aura
+                if match:
+                    match = match.group(1)
+                else:
+                    continue
 
-                for biome in self.biomedata.keys():
-                    if biome in line:
-                        await self.biomedetected(biome, aura)
+                fixed = re.sub(r'"state":"Equipped "([^"]+)"', r'"state":"Equipped \"\1\""', match)
 
-                        return
+                data = json.loads(fixed)
+
+                state = data["data"]["state"]
+                
+                aura = state.replace('Equipped ', '').strip('_').replace('_', ' ').strip('"')
+                biome = data["data"]["largeImage"]["hoverText"]
+
+                await self.biomedetected(biome, aura)
+                return
 
     # async methods
     async def biomedetected(self, biome, aura):
+        if biome not in self.biomedata: return
+        aura = 'Loading...' if aura.lower() == 'in main menu' else aura
+
+        self.last_aura = aura
+
         firstTime = self.last_biome is None
         updateCounter = False
         payload = {
             'username': self.data['webhook_name'] + ' | Biomes',
-            'content': '@everyone' if biome in (self.biomedata['glitch_keywords'] + self.biomedata['dream_keywords']) else '',
+            'content': '',
             'avatar_url': self.data['webhook_avatar']
         }
+
+        if biome in (self.biomedata['glitch_keywords'] + self.biomedata['dream_keywords']):
+            payload['content'] = '@everyone'
+
+            if os.path.isfile(self.data['Rare Biome Sound']):
+                pygame.mixer.music.load(self.data['Rare Biome Sound'])
+                pygame.mixer.music.play()
+                
+            else:
+                print("[RARE BIOME] ⚠️ Sound file not found.")
+
+            show_toast(f'{biome.upper()} has been found in your server!', lambda _: push_window())
 
         embeds = []
         embed1 = {}
@@ -352,100 +449,157 @@ class LogSniper:
         if self.last_biome is None:
             self.last_biome = biome
             firstTime = True
+        
+        if biome in self.biomedata:
+            if firstTime:
+                description = f'Private Server:\n{self.pslink}'
 
-        if firstTime:
-            description = f'Private Server:\n{self.pslink}'
-
-            embed1 = {
-                'title': f'Current Biome: {biome}',
-                'description': description,
-                'footer': {'text': self.data['Version']},
-                'color': self.biomedata[biome]['color'],
-                'thumbnail': {
-                    'url': self.biomedata[biome]['image']
+                embed1 = {
+                    'title': f'Current Biome: {biome}',
+                    'description': description,
+                    'footer': {'text': self.data['Version']},
+                    'color': self.biomedata[biome]['color'],
+                    'thumbnail': {
+                        'url': self.biomedata[biome]['image']
+                    }
                 }
-            }
 
-            embeds.append(embed1)
+                embeds.append(embed1)
 
-            payload['embeds'] = embeds
+                payload['embeds'] = embeds
+                        
+            elif self.last_biome != biome:
+                updateCounter = (True if biome != 'NORMAL' else False)
+                description = f'Private Server:\n{self.pslink}' if biome != 'NORMAL' else ''
+                title = f'Biome {"Ended" if biome == "NORMAL" else "Started"} | {self.last_biome if biome == "NORMAL" else biome}'
 
-            for hook in self.data['Webhooks'].values():
-                response = requests.post(hook, json=payload)
-
-                if str(response.status_code)[0] == '4' and 'avatar_url' in payload:
-                    print('Error encountered while requests.post, attempting to use default values to send...')
-                    payload.pop('avatar_url')
-
-                    response = requests.post(hook, json=payload)
-
-
-                if 200 <= response.status_code < 300:
-                    pass
-                elif str(response.status_code)[0] == '4':
-                    print('Still failed, pls open an issue')
-                else:
-                    print('Unexpected response — possibly invalid avatar URL or other issue')
-
-        elif biome != self.last_biome:
-            updateCounter = (True if biome != 'NORMAL' else False)
-            description = f'Private Server:\n{self.pslink}' if biome != 'NORMAL' else ''
-            title = f'Biome {"Ended" if biome == "NORMAL" else "Started"} | {self.last_biome if biome == "NORMAL" else biome}'
-
-            embed1 = {
-                'title': title,
-                'description': description,
-                'footer': {'text': self.data['Version']},
-                'color': self.biomedata[biome if biome != 'NORMAL' else self.last_biome]['color'],
-                'thumbnail': {
-                    'url': self.biomedata[biome]['image']
+                embed1 = {
+                    'title': title,
+                    'description': description,
+                    'footer': {'text': self.data['Version']},
+                    'color': self.biomedata[biome if biome != 'NORMAL' else self.last_biome]['color'],
+                    'thumbnail': {
+                        'url': self.biomedata[biome]['image']
+                    }
                 }
-            }
 
-            fields = [
-                {
-                    'name': 'Current Aura',
-                    'value': aura,
-                    'inline': True
-                }
-            ]
-
-            if biome != 'NORMAL':
                 fields = [
                     {
-                        'name': 'Biome Found at',
-                        'value': discord_time,
+                        'name': 'Current Aura',
+                        'value': aura,
                         'inline': True
-                    },
-                    {
-                        'name': 'Biome Ending / Ended',
-                        'value': f'<t:{timestamp + self.biomedata[biome]["duration"]}:R>' if isinstance(self.biomedata[biome]["duration"], int) else '**NOT FOUND**',
-                        'inline': True
-                    },
-                ] + fields
+                    }
+                ]
 
-            embed1['fields'] = fields
+                if biome != 'NORMAL':
+                    fields = [
+                        {
+                            'name': 'Biome Found at',
+                            'value': discord_time,
+                            'inline': True
+                        },
+                        {
+                            'name': 'Biome Ending / Ended',
+                            'value': f'<t:{timestamp + self.biomedata[biome]["duration"]}:R>' if isinstance(self.biomedata[biome]["duration"], int) else '**NOT FOUND**',
+                            'inline': True
+                        },
+                    ] + fields
+
+                embed1['fields'] = fields
 
 
-            if self.last_biome != 'NORMAL' and biome != 'NORMAL':
-                embed2 = {
-                    'title': f'Biome Replaced | {self.last_biome}',
-                    'color': self.biomedata[self.last_biome]['color']
+                if self.last_biome != 'NORMAL' and biome != 'NORMAL':
+                    embed2 = {
+                        'title': f'Biome Replaced | {self.last_biome}',
+                        'color': self.biomedata[self.last_biome]['color']
+                    }
+
+                    embeds.append(embed2)
+
+                embeds.append(embed1)
+
+                payload['embeds'] = embeds
+                
+
+                for hook in self.data['Webhooks'].values():
+                    response = requests.post(hook, json=payload)
+                    self.appendlogs(f'[LINE 291 IN CODE, LINE {self.last_position} IN LOGFILE] Message sent with status code {response.status_code} at {self.current_time}')
+
+                    if str(response.status_code)[0] == '4' and 'avatar_url' in payload:
+                        print(f'[LINE 527] Error encountered while requests.post, attempting to use default values to send...\nResponse code:{response.status_code}')
+                        payload.pop('avatar_url')
+
+                        response = requests.post(hook, json=payload)
+
+                    if 200 <= response.status_code < 300:
+                        pass
+                    elif str(response.status_code)[0] == '4':
+                        print('Still failed, pls open an issue')
+                    else:
+                        print('Unexpected response — possibly invalid avatar URL or other issue')
+
+
+        '''elif biome not in self.biomedata:
+            if firstTime:
+                pass
+            
+            else:
+                updateCounter = True
+                description = f'Private Server:\n{self.pslink}'
+                title = f'Biome Started | {biome}'
+
+                embed1 = {
+                    'title': title,
+                    'description': description,
+                    'footer': {'text': self.data['Version']},
+                    'color': 5879591,
+                    #'thumbnail': {'url': self.biomedata[biome]['image']}
                 }
 
-                embeds.append(embed2)
+                fields = [
+                    {
+                        'name': 'Current Aura',
+                        'value': aura,
+                        'inline': True
+                    }
+                ]
 
-            embeds.append(embed1)
+                if biome != 'NORMAL':
+                    fields = [
+                        {
+                            'name': 'Biome Found at',
+                            'value': discord_time,
+                            'inline': True
+                        },
+                        {
+                            'name': 'Biome Ending / Ended',
+                            'value': '**NOT FOUND**',
+                            'inline': True
+                        },
+                    ] + fields
 
-            payload['embeds'] = embeds
-            
+                embed1['fields'] = fields
+
+
+                if self.last_biome != 'NORMAL' and biome != 'NORMAL':
+                    embed2 = {
+                        'title': f'Biome Replaced | {self.last_biome}',
+                        'color': self.biomedata[self.last_biome]['color']
+                    }
+
+                    embeds.append(embed2)
+
+                embeds.append(embed1)
+
+                payload['embeds'] = embeds
+                
 
             for hook in self.data['Webhooks'].values():
                 response = requests.post(hook, json=payload)
                 self.appendlogs(f'[LINE 291 IN CODE, LINE {self.last_position} IN LOGFILE] Message sent with status code {response.status_code} at {self.current_time}')
 
                 if str(response.status_code)[0] == '4' and 'avatar_url' in payload:
-                    print('Error encountered while requests.post, attempting to use default values to send...')
+                    print(f'Error encountered while requests.post, attempting to use default values to send...\nResponse code:{response.status_code}')
                     payload.pop('avatar_url')
 
                     response = requests.post(hook, json=payload)
@@ -455,9 +609,8 @@ class LogSniper:
                 elif str(response.status_code)[0] == '4':
                     print('Still failed, pls open an issue')
                 else:
-                    print('Unexpected response — possibly invalid avatar URL or other issue')
+                    print('Unexpected response — possibly invalid avatar URL or other issue')'''
 
-            
         if updateCounter:
             self.appendlogs(f'[LINE 295 IN CODE, LINE {self.last_position} IN LOGFILE] {biome} detected at {self.current_time}.')
 
@@ -471,6 +624,7 @@ class LogSniper:
 
     # main loop
     async def run(self):
+        self.macro_start_time = int(time.time())
         timestamp = int(time.time())
         discord_time = f"<t:{timestamp}:R>"
 
@@ -481,6 +635,7 @@ class LogSniper:
             mb.showwarning('Please download bloxstrap', 'Bloxstrap isnt downloaded, unable to snipe merchant.\nIf you don\'t want to merchant snipe, please close and ignore this warning')
 
         else:
+            '''
             fflags = {}
             
             with open(os.path.join(os.getenv('LOCALAPPDATA'), 'Bloxstrap', 'Modifications', 'ClientSettings', 'ClientAppSettings.json'), 'r') as f:
@@ -496,6 +651,8 @@ class LogSniper:
                 
             with open(os.path.join(os.getenv('LOCALAPPDATA'), 'Bloxstrap', 'Modifications', 'ClientSettings', 'ClientAppSettings.json'), 'w') as f:
                 json.dump(fflags, f)
+                print('Missing FFlags updated')
+            '''
 
         if 'RobloxPlayerBeta.exe' not in [proc.info['name'] for proc in psutil.process_iter(['pid', 'name'])]:
             self.blacklisted_files.append(self.get_latest_log_file())
@@ -525,7 +682,7 @@ class LogSniper:
             self.appendlogs(f'[LINE 291 IN CODE, LINE {self.last_position} IN LOGFILE] Message sent with status code {response.status_code} at {self.current_time}')
 
             if str(response.status_code)[0] == '4' and 'avatar_url' in payload:
-                print('Error encountered while requests.post, attempting to use default values to send...')
+                print(f'[LINE 681] Error encountered while requests.post, attempting to use default values to send...\nResponse code:{response.status_code}')
                 payload.pop('avatar_url')
 
                 response = requests.post(hook, json=payload)

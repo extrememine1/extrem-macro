@@ -39,14 +39,17 @@ localvars = {
     'sniper_log': None,
     'current_anti_dc_thread': None,
     'screen_size': None,
-    'biomes_found': {}
+    'biomes_found': {},
+    'merchants_found': {}
 }
+
 template = { # ALL TEMPLATE DATA IS STORED UNDER DATA, ONLY USE THIS FOR REFERENCE DO NOT CALL IT FOR DATA
     'Token': '',
     'Server': '',
     'Webhooks': {},
     'anti_dc': False,
     'Rare Biome Sound': '',
+    'Rare Merchant Sound': '',
     'Biome Stats': {
         'WINDY': 0,
         'RAINY': 0,
@@ -166,13 +169,21 @@ def anti_disconnect():
         while (localvars['active'] and data['anti_dc']):
             hwnd = win32gui.FindWindow(None, 'Roblox')
 
-            keyboard.send('shift')
+            try:
+                if hwnd != 0:
+                    win32gui.SetForegroundWindow(hwnd)
+                else:
+                    time.sleep(15 * 60)
+                    continue
+                
+            except Exception as e:
+                keyboard.send('shift')
 
-            if hwnd != 0:
-                win32gui.SetForegroundWindow(hwnd)
-            else:
-                time.sleep(15 * 60)
-                continue
+                if hwnd != 0:
+                    win32gui.SetForegroundWindow(hwnd)
+                else:
+                    time.sleep(15 * 60)
+                    continue
 
             time.sleep(0.25)
 
@@ -260,6 +271,14 @@ def run_in_main_thread(func, *args):
 @logger.event
 async def on_biome(biome, aura, updateCounter=False):
     populate(biome, aura, updateCounter)
+
+@logger.event
+async def on_merchant(merchant):
+    if merchant not in localvars['merchants_found']:
+        localvars['merchants_found'][merchant] = 1
+
+    else:
+        localvars['merchants_found'][merchant] += 1
 
 @logger.event
 async def get_discord_data():
@@ -404,7 +423,45 @@ async def is_my_pc_going_to_explode(msg):
     info = cpuinfo.get_cpu_info()
     cpustats= f'**{info["brand_raw"]}**\nCPU Load: {psutil.cpu_percent(interval=1)}%'
 
-    await msg.reply(f'**[{data["Version"]}]**\nCurrent PC data:\n\n**CPU stats**:\n{cpustats}\n\n**GPU stats**:\n{gpustats}\n\n**RAM stats**:\n{memstats}')
+    await msg.reply(f'# **[{data["Version"]}] Current PC data:**\n\n**CPU stats**:\n{cpustats}\n\n**GPU stats**:\n{gpustats}\n\n**RAM stats**:\n{memstats}')
+
+@sniper.command()
+async def session_stats(msg):
+    current_time = time.time()
+    start_time = logger.macro_start_time
+
+    elapsed_time = logger.format_time(current_time - start_time)
+
+    # biomes
+    biome_text = ''
+    total_biomes = sum(localvars['biomes_found'].values())
+
+    biomes = {elm: localvars['biomes_found'][elm] for elm in sorted(localvars['biomes_found'], key=lambda k: localvars['biomes_found'][k], reverse=True)}
+
+    for biome, val in biomes.items():
+        if biome in biomedata['glitch_keywords'] + biomedata['dream_keywords']:
+            biome_text += f'**{biome}: {val}**\n'
+        else:
+            biome_text += f'{biome}: {val}\n'
+
+    biome_text = 'None' if biome_text == '' else biome_text.strip('\n')
+
+    # merchants
+    merchant_text = ''
+    total_merchants = sum(localvars['merchants_found'].values())
+
+    merchants = {elm: localvars['merchants_found'][elm] for elm in sorted(localvars['merchants_found'], key=lambda k: localvars['merchants_found'][k], reverse=True)}
+
+    for merchant, val in merchants.items():
+        if merchant in ['Jester', 'Eden']:
+            merchant_text += f'**{merchant}: {val}**\n'
+        else:
+            merchant_text += f'{merchant}: {val}\n'
+
+    merchant_text = 'None' if merchant_text == '' else merchant_text.strip('\n')
+
+    #output
+    await msg.reply(f'# **[{data["Version"]}] Session Stats**:\n**Elapsed Time:**\n{elapsed_time}\n\n**Biomes Found ({total_biomes}):**\n{biome_text}\n\n**Merchants Found ({total_merchants}):**\n{merchant_text}\n\n**Current Biome:**\n{logger.last_biome}\n\n**Current Aura:**\n{logger.last_aura}')
 
 # ALL UI -------------------------------------------------------------------------
 # create root

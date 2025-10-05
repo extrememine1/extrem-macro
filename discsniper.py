@@ -33,6 +33,7 @@ class MyClient(commands.Bot):
         self.toaster = toaster
         self.deep_link = None
         self.rare_found = None
+        self.own_link = False
 
         self.rarenotif = imports['Rare Biome Sound']
         
@@ -47,9 +48,12 @@ class MyClient(commands.Bot):
             1348261847459037255,
             1271190742911684638,
             1311362490575097997,
+            1411876944080928849,
+            1309940939812503672,
+            1309954772635226206
         ]
 
-        self.servers = [1271189425459826699, 1362219755489988646, 1396579777665568868]
+        self.servers = [1220146999480029224, 1271189425459826699, 1362219755489988646, 1396579777665568868]
         self.cmd_whitelist = imports['cmd_whitelist']
 
         self.current_time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
@@ -160,6 +164,9 @@ class MyClient(commands.Bot):
                 self.rare_found = True
                 biome = found
 
+            if self.imports['Server'] in content_lower:
+                self.own_link = True
+
             link_match = url_pattern.search(message.content)
             if link_match:
                 self.deep_link = self.convert_roblox_link(link_match.group())
@@ -174,11 +181,16 @@ class MyClient(commands.Bot):
             if embed.description:
                 desc_lower = embed.description
                 found = detect_biome(desc_lower)
+                
                 if found:
                     self.rare_found = True
                     biome = biome or found
 
+                if self.imports['Server'] in embed.description:
+                    self.own_link = True
+
                 link_match = url_pattern.search(embed.description)
+                
                 if link_match and not self.deep_link:
                     self.deep_link = self.convert_roblox_link(link_match.group())
 
@@ -186,9 +198,13 @@ class MyClient(commands.Bot):
                 for field in embed.fields:
                     field_text = f"{field.name} {field.value}"
                     found = detect_biome(field_text)
+                    
                     if found:
                         self.rare_found = True
                         biome = biome or found
+
+                    if self.imports['Server'] in field_text:
+                        self.own_link = True
 
                     link_match = url_pattern.search(field_text)
                     if link_match and not self.deep_link:
@@ -215,15 +231,21 @@ class MyClient(commands.Bot):
             self.toaster.show_toast(toast)
 
         if self.deep_link and self.rare_found:
-            if os.path.isfile(self.rarenotif):
-                pygame.mixer.music.load(self.rarenotif)
-                pygame.mixer.music.play()
+            if not self.own_link:
+                if os.path.isfile(self.rarenotif):
+                    pygame.mixer.music.load(self.rarenotif)
+                    pygame.mixer.music.play()
+                    
+                else:
+                    print("[RARE BIOME] ⚠️ Sound file not found.")
+
+                self.appendlogs(f"Deep link is: {self.deep_link!r}")
+
+                threading.Thread(target=show_toast, daemon=True).start()
+
             else:
-                print("⚠️ Sound file not found.")
-
-            self.appendlogs(f"Deep link is: {self.deep_link!r}")
-
-            threading.Thread(target=show_toast, daemon=True).start()
+                self.own_link = False
+                print(f'[DISC SNIPER] {biome.upper()} detected in own server, logsniper will do the alerting')
 
     def fetch_biome_data(self, biomedata):
         self.biomedata = biomedata
