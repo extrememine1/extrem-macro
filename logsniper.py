@@ -521,22 +521,22 @@ class LogSniper:
                 payload['embeds'] = embeds
                 
 
-                for hook in self.data['Webhooks'].values():
+            for hook in self.data['Webhooks'].values():
+                response = requests.post(hook, json=payload)
+                self.appendlogs(f'[LINE 291 IN CODE, LINE {self.last_position} IN LOGFILE] Message sent with status code {response.status_code} at {self.current_time}')
+
+                if str(response.status_code)[0] == '4' and 'avatar_url' in payload:
+                    print(f'[LINE 527] Error encountered while requests.post, attempting to use default values to send...\nResponse code:{response.status_code}')
+                    payload.pop('avatar_url')
+
                     response = requests.post(hook, json=payload)
-                    self.appendlogs(f'[LINE 291 IN CODE, LINE {self.last_position} IN LOGFILE] Message sent with status code {response.status_code} at {self.current_time}')
 
-                    if str(response.status_code)[0] == '4' and 'avatar_url' in payload:
-                        print(f'[LINE 527] Error encountered while requests.post, attempting to use default values to send...\nResponse code:{response.status_code}')
-                        payload.pop('avatar_url')
-
-                        response = requests.post(hook, json=payload)
-
-                    if 200 <= response.status_code < 300:
-                        pass
-                    elif str(response.status_code)[0] == '4':
-                        print('Still failed, pls open an issue')
-                    else:
-                        print('Unexpected response — possibly invalid avatar URL or other issue')
+                if 200 <= response.status_code < 300:
+                    pass
+                elif str(response.status_code)[0] == '4':
+                    print('Still failed, pls open an issue')
+                else:
+                    print('Unexpected response — possibly invalid avatar URL or other issue')
 
 
         '''elif biome not in self.biomedata:

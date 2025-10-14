@@ -208,7 +208,7 @@ def anti_disconnect():
                 mouse.move(width - (1/100) * width, height - (5/100) * height, absolute=True)
                 mouse.click('left')
                 mouse.move(current_pos[0], current_pos[1], absolute=True)
-
+                
             time.sleep(15 * 60)
 
         localvars['current_anti_dc_thread'] = None
