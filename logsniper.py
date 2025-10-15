@@ -415,19 +415,7 @@ class LogSniper:
             'content': '',
             'avatar_url': self.data['webhook_avatar']
         }
-
-        if biome in (self.biomedata['glitch_keywords'] + self.biomedata['dream_keywords']):
-            payload['content'] = '@everyone'
-
-            if os.path.isfile(self.data['Rare Biome Sound']):
-                pygame.mixer.music.load(self.data['Rare Biome Sound'])
-                pygame.mixer.music.play()
-                
-            else:
-                print("[RARE BIOME] ⚠️ Sound file not found.")
-
-            show_toast(f'{biome.upper()} has been found in your server!', lambda _: push_window())
-
+        
         embeds = []
         embed1 = {}
         embed2 = {}
@@ -450,7 +438,7 @@ class LogSniper:
             self.last_biome = biome
             firstTime = True
         
-        if biome in self.biomedata:
+        if biome in self.biomedata and (self.last_biome != biome or firstTime):
             if firstTime:
                 description = f'Private Server:\n{self.pslink}'
 
@@ -469,6 +457,18 @@ class LogSniper:
                 payload['embeds'] = embeds
                         
             elif self.last_biome != biome:
+                if biome in (self.biomedata['glitch_keywords'] + self.biomedata['dream_keywords']):
+                    payload['content'] = '@everyone'
+
+                    if os.path.isfile(self.data['Rare Biome Sound']):
+                        pygame.mixer.music.load(self.data['Rare Biome Sound'])
+                        pygame.mixer.music.play()
+                        
+                    else:
+                        print("[RARE BIOME] ⚠️ Sound file not found.")
+
+                    show_toast(f'{biome.upper()} has been found in your server!', lambda _: push_window())
+
                 updateCounter = (True if biome != 'NORMAL' else False)
                 description = f'Private Server:\n{self.pslink}' if biome != 'NORMAL' else ''
                 title = f'Biome {"Ended" if biome == "NORMAL" else "Started"} | {self.last_biome if biome == "NORMAL" else biome}'
