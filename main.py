@@ -135,13 +135,6 @@ def populate(biome, aura, updateCounter):
 
     saveConfig()
 
-def fetch_biome_data():
-    if localvars['active']:
-        biomedata = requests.get(template['PresetData']).json()
-
-        logger.fetch_biome_data(biomedata)
-        sniper.fetch_biome_data(biomedata)
-
 async def joinGameSequence(delay):
     await asyncio.sleep(2.5)
     hwnd = win32gui.FindWindow(None, 'Roblox')
@@ -250,7 +243,7 @@ def startMacro():
     threading.Thread(target=run_sniper_loop, daemon=True).start()
     threading.Thread(target=run_logger_loop, daemon=True).start()
     threading.Thread(target=wait_and_start_anti_disconnect, daemon=True).start()
-    threading.Thread(target=fetch_biome_data, daemon=True).start()
+    #threading.Thread(target=fetch_biome_data, daemon=True).start()
 
 def on_shutdown(): #shutdown function
     global root
@@ -295,6 +288,15 @@ async def get_discord_data():
 @logger.event
 async def get_data():
     return localvars | data
+
+@logger.event
+@sniper.event
+async def fetch_biome_data():
+    if localvars['active']:
+        biomedata = requests.get(template['PresetData']).json()
+
+        logger.biomedata = biomedata
+        sniper.biomedata = biomedata
 
 @sniper.event
 async def rareSniped(biome):
@@ -471,6 +473,7 @@ root = Window(
 )
 
 root.wm_protocol('WM_DELETE_WINDOW', on_shutdown)
+root.attributes('-topmost', True)
 root.attributes('-topmost', data['always_on_top'])
 
 localvars['screen_size'] = f'{root.winfo_screenwidth()}x{root.winfo_screenheight()}'

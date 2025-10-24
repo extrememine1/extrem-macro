@@ -31,9 +31,6 @@ class MyClient(commands.Bot):
         self.token = imports['Token']
         self.events = {}
         self.toaster = toaster
-        self.deep_link = None
-        self.rare_found = None
-        self.own_link = False
 
         self.rarenotif = imports['Rare Biome Sound']
         
@@ -147,91 +144,68 @@ class MyClient(commands.Bot):
         return None
 
     async def check(self, message):
-        self.rare_found = False
-        self.deep_link = None
+        rare_found = False
+        deep_link = None
         biome = None
+        own_link = False
+
+        # rework this system to parameter based
 
         def detect_biome(text):
-            for kw in self.biomedata['glitch_keywords'] + self.biomedata['dream_keywords']:
-                if kw in text:
-                    return kw
+            for biom in self.biomedata['glitch_keywords'] + self.biomedata['dream_keywords']:
+                if biom in text:
+                    return biom
             return None
 
-        if message.content:
-            content_lower = message.content
-            found = detect_biome(content_lower)
-            if found:
-                self.rare_found = True
-                biome = found
-
-            if self.imports['Server'] in content_lower:
-                self.own_link = True
-
-            link_match = url_pattern.search(message.content)
-            if link_match:
-                self.deep_link = self.convert_roblox_link(link_match.group())
+        text_fields = [message.content] + [
+            text
+            for sublist in [[embed.title, embed.description]
+                            for embed in message.embeds
+                            ]
+            
+            for text in sublist
+        ]
 
         for embed in message.embeds:
-            if embed.title:
-                found = detect_biome(embed.title)
-                if found:
-                    self.rare_found = True
-                    biome = biome or found
+            if hasattr(embed, 'fields'):
+                text_fields += [field.value for field in embed.fields]
 
-            if embed.description:
-                desc_lower = embed.description
-                found = detect_biome(desc_lower)
-                
-                if found:
-                    self.rare_found = True
-                    biome = biome or found
+        text_fields = [text for text in text_fields if type(text) == str]
 
-                if self.imports['Server'] in embed.description:
-                    self.own_link = True
+        link_matches = [url_pattern.search(text) for text in text_fields]
+        if any(link_matches):
+            link_match = [x for x in link_matches if x != None][0]
+            deep_link = self.convert_roblox_link(link_match.group())
 
-                link_match = url_pattern.search(embed.description)
-                
-                if link_match and not self.deep_link:
-                    self.deep_link = self.convert_roblox_link(link_match.group())
+        biomes = [detect_biome(text) for text in text_fields] # None if no rare biome else str
+        if any(biomes):
+            biome = [x for x in biomes if x != None][0]
+            rare_found = True
 
-            if hasattr(embed, "fields"):
-                for field in embed.fields:
-                    field_text = f"{field.name} {field.value}"
-                    found = detect_biome(field_text)
-                    
-                    if found:
-                        self.rare_found = True
-                        biome = biome or found
+        for text in text_fields:
+            if self.imports['Server'] in text:
+                own_link = True
 
-                    if self.imports['Server'] in field_text:
-                        self.own_link = True
-
-                    link_match = url_pattern.search(field_text)
-                    if link_match and not self.deep_link:
-                        self.deep_link = self.convert_roblox_link(link_match.group())
-
-        if self.rare_found:
+        if rare_found:
             self.imports = await self.events['get_data']()
             self.rarenotif = self.imports['Rare Biome Sound'] or r'sounds/glitchNotif.mp3'
 
-        return biome
+        return biome, rare_found, deep_link, own_link
+        #      str    bool        str        bool
 
 
     async def notifLink(self, message):
-        self.deep_link = None
-        self.rare_found = False
-
-        biome = await self.check(message)
+        biome, rare_found, deep_link, own_link = await self.check(message)
 
         def show_toast():
             toast = Toast(
                 text_fields=[f'{biome.upper()} found in {message.channel.name}'],
-                on_activated=lambda _: (asyncio.create_task(self.events['rareSniped'](biome)), os.startfile(self.deep_link))
+                on_activated=lambda _: (asyncio.create_task(self.events['rareSniped'](biome)), os.startfile(deep_link))
             )
             self.toaster.show_toast(toast)
 
-        if self.deep_link and self.rare_found:
-            if not self.own_link:
+        if deep_link and rare_found:
+            if not own_link:
                 if os.path.isfile(self.rarenotif):
                     pygame.mixer.music.load(self.rarenotif)
                     pygame.mixer.music.play()
@@ -239,13 +213,9 @@ class MyClient(commands.Bot):
                 else:
                     print("[RARE BIOME] ⚠️ Sound file not found.")
 
-                self.appendlogs(f"Deep link is: {self.deep_link!r}")
+                self.appendlogs(f"Deep link is: {deep_link!r}")
 
                 threading.Thread(target=show_toast, daemon=True).start()
 
             else:
-                self.own_link = False
                 print(f'[DISC SNIPER] {biome.upper()} detected in own server, logsniper will do the alerting')
-
-    def fetch_biome_data(self, biomedata):
-        self.biomedata = biomedata

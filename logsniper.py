@@ -175,9 +175,6 @@ class LogSniper:
         with open(self.currentLog, 'a') as file:
             file.write(f'{message}\n\n')
 
-    def fetch_biome_data(self, biomedata):
-        self.biomedata = biomedata
-
     def format_time(self, seconds):
         seconds = int(seconds)
         
@@ -432,13 +429,14 @@ class LogSniper:
         #     start=self.macro_start_time
         # )
 
+        
+
 
         # webhook operations
         if self.last_biome is None:
-            self.last_biome = biome
             firstTime = True
         
-        if biome in self.biomedata and (self.last_biome != biome or firstTime):
+        if biome in self.biomedata and self.last_biome != biome:
             if firstTime:
                 description = f'Private Server:\n{self.pslink}'
 
@@ -455,6 +453,7 @@ class LogSniper:
                 embeds.append(embed1)
 
                 payload['embeds'] = embeds
+                self.last_biome = biome
                         
             elif self.last_biome != biome:
                 if biome in (self.biomedata['glitch_keywords'] + self.biomedata['dream_keywords']):
@@ -492,6 +491,9 @@ class LogSniper:
                 ]
 
                 if biome != 'NORMAL':
+                    if ('duration' not in self.biomedata[biome] or self.biomedata[biome]['duration'] is None) and 'fetch_biome_data' in self.events:
+                        await self.events['fetch_biome_data']()
+                    
                     fields = [
                         {
                             'name': 'Biome Found at',
@@ -500,7 +502,7 @@ class LogSniper:
                         },
                         {
                             'name': 'Biome Ending / Ended',
-                            'value': f'<t:{timestamp + self.biomedata[biome]["duration"]}:R>' if isinstance(self.biomedata[biome]["duration"], int) else '**NOT FOUND**',
+                            'value': f'<t:{timestamp + self.biomedata[biome]["duration"]}:R>' if isinstance(self.biomedata[biome]["duration"], int) else self.biomedata[biome]["duration"] if self.biomedata[biome]["duration"] != None else '**NOT FOUND**',
                             'inline': True
                         },
                     ] + fields
@@ -611,7 +613,7 @@ class LogSniper:
                 else:
                     print('Unexpected response — possibly invalid avatar URL or other issue')'''
 
-        if updateCounter:
+        if self.last_biome != biome:
             self.appendlogs(f'[LINE 295 IN CODE, LINE {self.last_position} IN LOGFILE] {biome} detected at {self.current_time}.')
 
         if 'on_biome' in self.events:
