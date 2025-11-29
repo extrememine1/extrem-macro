@@ -441,7 +441,7 @@ async def session_stats(msg):
     biomes = {elm: localvars['biomes_found'][elm] for elm in sorted(localvars['biomes_found'], key=lambda k: localvars['biomes_found'][k], reverse=True)}
 
     for biome, val in biomes.items():
-        if biome in biomedata['glitch_keywords'] + biomedata['dream_keywords']:
+        if biome in biomedata['glitch_keywords'] + biomedata['dream_keywords'] + biomedata['cyber_keywords']:
             biome_text += f'**{biome}: {val}**\n'
         else:
             biome_text += f'{biome}: {val}\n'
@@ -753,7 +753,7 @@ for biome, number in data['Biome Stats'].items():
         text=f'{biome}: {number}',
         foreground=color
     )
-    biom.grid(row=row, column=column, padx=25, pady=25, sticky='n')
+    biom.grid(row=row, column=column, padx=20, pady=20, sticky='n')
     populates['biomeLabels'][biome] = biom
 
     if row >= 1:

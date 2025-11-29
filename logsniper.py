@@ -21,6 +21,11 @@ from tkinter import messagebox as mb
 import pygame
 from windows_toasts import *
 
+# data
+word_replacements = {
+    'â˜…': '⭐'
+}
+
 # funcs
 async def joinGameSequence():
     await asyncio.sleep(2.5)
@@ -403,8 +408,14 @@ class LogSniper:
         if biome not in self.biomedata: return
         aura = 'Loading...' if aura.lower() == 'in main menu' else aura
 
-        self.last_aura = aura
+        # aura processing
+        for target, correction in word_replacements.items():
+            if target in aura:
+                aura = aura.replace(target, correction)
 
+        self.last_aura = aura
+        
+        # logic
         firstTime = self.last_biome is None
         updateCounter = False
         payload = {
@@ -456,7 +467,7 @@ class LogSniper:
                 self.last_biome = biome
                         
             elif self.last_biome != biome:
-                if biome in (self.biomedata['glitch_keywords'] + self.biomedata['dream_keywords']):
+                if biome in (self.biomedata['glitch_keywords'] + self.biomedata['dream_keywords'] + self.biomedata['cyber_keywords']):
                     payload['content'] = '@everyone'
 
                     if os.path.isfile(self.data['Rare Biome Sound']):
