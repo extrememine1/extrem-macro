@@ -144,9 +144,7 @@ async def joinGameSequence(delay):
 
     await asyncio.sleep(delay)
 
-    for key in ['\\', 'enter', '\\']:
-        keyboard.send(key)
-        await asyncio.sleep(0.1)
+    keyboard.send('\\', 'enter', 's', '\\', delay=0.1)
 
     win32gui.SetWindowPos(
         hwnd,

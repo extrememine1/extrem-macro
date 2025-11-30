@@ -34,17 +34,9 @@ async def joinGameSequence():
     keyboard.send('shift')
     win32gui.SetForegroundWindow(hwnd)
 
-    await asyncio.sleep(12)
+    await asyncio.sleep(15)
 
-    for key in ['\\', 'enter']:
-        keyboard.send(key)
-        await asyncio.sleep(0.1)
-
-    await asyncio.sleep(5.5)
-
-    for key in ['\\', 'enter', '\\']:
-        keyboard.send(key)
-        await asyncio.sleep(0.1)
+    keyboard.send('\\', 'enter', 's', '\\', delay=0.1)
 
     win32gui.SetWindowPos(
         hwnd,
