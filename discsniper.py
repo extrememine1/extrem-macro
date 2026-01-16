@@ -152,7 +152,7 @@ class MyClient(commands.Bot):
         # rework this system to parameter based
 
         def detect_biome(text):
-            for biom in self.biomedata['glitch_keywords'] + self.biomedata['dream_keywords'] + self.biomedata['cyber_keywords'] + self.biomedata['cyber_keywords']:
+            for biom in self.biomedata['rare_biomes']:
                 if biom in text:
                     return biom
             return None

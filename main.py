@@ -3,6 +3,7 @@ import re
 
 import requests
 import json
+from json_repair import *
 
 import threading
 import asyncio
@@ -63,7 +64,7 @@ template = { # ALL TEMPLATE DATA IS STORED UNDER DATA, ONLY USE THIS FOR REFEREN
         'DREAMSPACE': 0,
         'BLAZING SUN': 0
     },
-    'Version': 'extrem-macro-v3.1',
+    'Version': 'extrem-macro-v3.2',
     'webhook_name': 'extrem-macro',
     'webhook_avatar': 'https://cdn.discordapp.com/attachments/1362219756148490433/1384873643233906698/image.png?ex=68540396&is=6852b216&hm=ecac40a532e082dedc2b48d40ef6b748dc4997675fc43dc915f1681b1e19a66d&',
     'cmd_whitelist': [], # guh
@@ -83,6 +84,9 @@ try:
 
 except FileNotFoundError:
     data = template
+
+except json.decoder.JSONDecodeError:
+    data = from_file('configs.json', ensure_ascii=False)
 
 def saveConfig():
     global data

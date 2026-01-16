@@ -397,7 +397,7 @@ class LogSniper:
 
     # async methods
     async def biomedetected(self, biome, aura):
-        if biome not in self.biomedata: return
+        if biome not in self.biomedata['biomes']: return
         aura = 'Loading...' if aura.lower() == 'in main menu' else aura
 
         # aura processing
@@ -439,7 +439,7 @@ class LogSniper:
         if self.last_biome is None:
             firstTime = True
         
-        if biome in self.biomedata and self.last_biome != biome:
+        if self.last_biome != biome:
             if firstTime:
                 description = f'Private Server:\n{self.pslink}'
 
@@ -447,9 +447,9 @@ class LogSniper:
                     'title': f'Current Biome: {biome}',
                     'description': description,
                     'footer': {'text': self.data['Version']},
-                    'color': self.biomedata[biome]['color'],
+                    'color': self.biomedata['biomes'][biome]['color'],
                     'thumbnail': {
-                        'url': self.biomedata[biome]['image']
+                        'url': self.biomedata['biomes'][biome].get('image', '')
                     }
                 }
 
@@ -459,7 +459,7 @@ class LogSniper:
                 self.last_biome = biome
                         
             elif self.last_biome != biome:
-                if biome in (self.biomedata['glitch_keywords'] + self.biomedata['dream_keywords'] + self.biomedata['cyber_keywords']):
+                if biome in self.biomedata['rare_biomes']:
                     payload['content'] = '@everyone'
 
                     if os.path.isfile(self.data['Rare Biome Sound']):
@@ -479,9 +479,9 @@ class LogSniper:
                     'title': title,
                     'description': description,
                     'footer': {'text': self.data['Version']},
-                    'color': self.biomedata[biome if biome != 'NORMAL' else self.last_biome]['color'],
+                    'color': self.biomedata['biomes'][biome if biome != 'NORMAL' else self.last_biome]['color'],
                     'thumbnail': {
-                        'url': self.biomedata[biome]['image']
+                        'url': self.biomedata['biomes'][biome].get('image', '')
                     }
                 }
 
@@ -494,7 +494,7 @@ class LogSniper:
                 ]
 
                 if biome != 'NORMAL':
-                    if ('duration' not in self.biomedata[biome] or self.biomedata[biome]['duration'] is None) and 'fetch_biome_data' in self.events:
+                    if ('duration' not in self.biomedata['biomes'][biome] or self.biomedata['biomes'][biome]['duration'] is None) and 'fetch_biome_data' in self.events:
                         await self.events['fetch_biome_data']()
                     
                     fields = [
@@ -505,7 +505,7 @@ class LogSniper:
                         },
                         {
                             'name': 'Biome Ending / Ended',
-                            'value': f'<t:{timestamp + self.biomedata[biome]["duration"]}:R>' if isinstance(self.biomedata[biome]["duration"], int) else self.biomedata[biome]["duration"] if self.biomedata[biome]["duration"] != None else '**NOT FOUND**',
+                            'value': f'<t:{timestamp + self.biomedata["biomes"][biome]["duration"]}:R>' if isinstance(self.biomedata['biomes'][biome]["duration"], int) else self.biomedata['biomes'][biome]["duration"] if self.biomedata['biomes'][biome]["duration"] != None else '**NOT FOUND**',
                             'inline': True
                         },
                     ] + fields
@@ -516,7 +516,7 @@ class LogSniper:
                 if self.last_biome != 'NORMAL' and biome != 'NORMAL':
                     embed2 = {
                         'title': f'Biome Replaced | {self.last_biome}',
-                        'color': self.biomedata[self.last_biome]['color']
+                        'color': self.biomedata['biomes'][self.last_biome]['color']
                     }
 
                     embeds.append(embed2)
@@ -558,7 +558,7 @@ class LogSniper:
                     'description': description,
                     'footer': {'text': self.data['Version']},
                     'color': 5879591,
-                    #'thumbnail': {'url': self.biomedata[biome]['image']}
+                    #'thumbnail': {'url': self.biomedata['biomes'][biome].get('image', '')}
                 }
 
                 fields = [
@@ -589,7 +589,7 @@ class LogSniper:
                 if self.last_biome != 'NORMAL' and biome != 'NORMAL':
                     embed2 = {
                         'title': f'Biome Replaced | {self.last_biome}',
-                        'color': self.biomedata[self.last_biome]['color']
+                        'color': self.biomedata['biomes'][self.last_biome]['color']
                     }
 
                     embeds.append(embed2)
@@ -658,6 +658,7 @@ class LogSniper:
                 json.dump(fflags, f)
                 print('Missing FFlags updated')
             '''
+            pass
 
         if 'RobloxPlayerBeta.exe' not in [proc.info['name'] for proc in psutil.process_iter(['pid', 'name'])]:
             self.blacklisted_files.append(self.get_latest_log_file())
